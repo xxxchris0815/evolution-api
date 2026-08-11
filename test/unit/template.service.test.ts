@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { afterEach, describe, it, mock } from 'node:test';
 
 import { TemplateController } from '../../src/api/controllers/template.controller';
+import { MetaWebhookConfigService } from '../../src/api/services/metaWebhookConfig.service';
 import { TemplateService } from '../../src/api/services/template.service';
 
 describe('TemplateController (unit)', () => {
@@ -18,7 +19,12 @@ describe('TemplateController (unit)', () => {
       delete: mock.fn(async () => ({ success: true })),
     } as unknown as TemplateService;
 
-    const controller = new TemplateController(service);
+    const metaWebhookConfigService = {
+      find: mock.fn(async () => ({ callbackUrl: 'http://localhost/webhook/meta' })),
+      update: mock.fn(async () => ({ passthroughEnabled: true })),
+    } as unknown as MetaWebhookConfigService;
+
+    const controller = new TemplateController(service, metaWebhookConfigService);
     const instance = { instanceName: 'meta-instance' } as any;
 
     await controller.createTemplate(instance, { name: 'hello' } as any);
@@ -27,12 +33,16 @@ describe('TemplateController (unit)', () => {
     await controller.findTemplateStatus(instance, { templateId: '123' });
     await controller.editTemplate(instance, { templateId: '123', category: 'UTILITY' });
     await controller.deleteTemplate(instance, { name: 'hello', hsmId: '123' });
+    await controller.findMetaWebhookConfig(instance);
+    await controller.updateMetaWebhookConfig(instance, { passthroughEnabled: true });
 
     assert.equal((service.create as any).mock.callCount(), 1);
     assert.equal((service.find as any).mock.callCount(), 1);
     assert.equal((service.findById as any).mock.callCount(), 2);
     assert.equal((service.edit as any).mock.callCount(), 1);
     assert.equal((service.delete as any).mock.callCount(), 1);
+    assert.equal((metaWebhookConfigService.find as any).mock.callCount(), 1);
+    assert.equal((metaWebhookConfigService.update as any).mock.callCount(), 1);
 
     const statusCall = (service.findById as any).mock.calls[1].arguments[1];
     assert.equal(statusCall.templateId, '123');

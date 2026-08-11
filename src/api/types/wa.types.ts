@@ -93,6 +93,7 @@ export declare namespace wa {
     readStatus?: boolean;
     syncFullHistory?: boolean;
     wavoipToken?: string;
+    metaWebhookPassthrough?: boolean;
   };
 
   export type LocalEvent = {

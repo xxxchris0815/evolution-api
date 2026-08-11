@@ -1,12 +1,18 @@
 import { InstanceDto } from '@api/dto/instance.dto';
+import { MetaWebhookConfigDto } from '@api/dto/metaWebhookConfig.dto';
 import { TemplateDto, TemplateFindByIdDto, TemplateFindDto } from '@api/dto/template.dto';
+import { MetaWebhookConfigService } from '@api/services/metaWebhookConfig.service';
 import { TemplateService } from '@api/services/template.service';
 
 /**
- * Thin controller for Meta message template CRUD/status operations.
+ * Thin controller for Meta message template CRUD/status operations
+ * and Meta webhook configuration for the Manager UI.
  */
 export class TemplateController {
-  constructor(private readonly templateService: TemplateService) {}
+  constructor(
+    private readonly templateService: TemplateService,
+    private readonly metaWebhookConfigService: MetaWebhookConfigService,
+  ) {}
 
   public async createTemplate(instance: InstanceDto, data: TemplateDto) {
     return this.templateService.create(instance, data);
@@ -36,5 +42,13 @@ export class TemplateController {
 
   public async deleteTemplate(instance: InstanceDto, data: { name: string; hsmId?: string }) {
     return this.templateService.delete(instance, data);
+  }
+
+  public async findMetaWebhookConfig(instance: InstanceDto) {
+    return this.metaWebhookConfigService.find(instance);
+  }
+
+  public async updateMetaWebhookConfig(instance: InstanceDto, data: MetaWebhookConfigDto) {
+    return this.metaWebhookConfigService.update(instance, data);
   }
 }

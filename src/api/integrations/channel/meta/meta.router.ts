@@ -8,7 +8,8 @@ import { Router } from 'express';
  *
  * - GET/POST /webhook/meta
  *   Standard Evolution processing (messages + template lifecycle).
- *   Optional raw passthrough sidecar when WA_BUSINESS_WEBHOOK_PASSTHROUGH=true.
+ *   Optional raw passthrough sidecar when WA_BUSINESS_WEBHOOK_PASSTHROUGH=true
+ *   or when the instance Setting.metaWebhookPassthrough is enabled.
  *
  * - GET/POST /webhook/meta/passthrough
  *   Dedicated endpoint that forwards Meta payloads using Meta's native schema

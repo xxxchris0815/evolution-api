@@ -11,8 +11,11 @@
   - Optional raw Meta webhook passthrough:
     - dedicated endpoint `GET/POST /webhook/meta/passthrough`
     - or sidecar on `/webhook/meta` via `WA_BUSINESS_WEBHOOK_PASSTHROUGH=true`
+      or per-instance `Setting.metaWebhookPassthrough`
     - emits `META_WEBHOOK` (`meta.webhook`) preserving Meta's native schema
   - Manager UI: Templates page for `WHATSAPP-BUSINESS` instances
+  - Manager UI: Meta webhook panel (callback URLs, verify token, passthrough toggle, META_WEBHOOK activation)
+  - API: `GET/POST /template/metaWebhook/:instanceName`
   - Default `WA_BUSINESS_VERSION` updated to `v26.0`
   - Docs: `docs/meta-templates.md`, `docs/meta-api-coverage.md`
   - Tests: unit + integration coverage via `npm test`

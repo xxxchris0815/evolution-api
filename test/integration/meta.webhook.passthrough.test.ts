@@ -14,6 +14,7 @@ describe('MetaWebhookPassthroughService (integration)', () => {
       instance: {
         findFirst: mock.fn(async () => ({ name: 'meta-instance', number: 'phone-1' })),
         findMany: mock.fn(async () => []),
+        findUnique: mock.fn(async () => ({ Setting: { metaWebhookPassthrough: false } })),
       },
     } as any;
 
@@ -25,6 +26,7 @@ describe('MetaWebhookPassthroughService (integration)', () => {
         get: (key: string) => {
           if (key === 'SERVER') return { URL: 'http://localhost:8080' };
           if (key === 'AUTHENTICATION') return { EXPOSE_IN_FETCH_INSTANCES: false };
+          if (key === 'WA_BUSINESS') return { WEBHOOK_PASSTHROUGH: false };
           return {};
         },
       } as any,
@@ -66,6 +68,7 @@ describe('MetaWebhookPassthroughService (integration)', () => {
       instance: {
         findFirst: mock.fn(async () => null),
         findMany: mock.fn(async () => [{ name: 'waba-instance', businessId: 'waba-9' }]),
+        findUnique: mock.fn(async () => ({ Setting: { metaWebhookPassthrough: true } })),
       },
     } as any;
 
@@ -77,6 +80,7 @@ describe('MetaWebhookPassthroughService (integration)', () => {
         get: (key: string) => {
           if (key === 'SERVER') return { URL: 'http://localhost:8080' };
           if (key === 'AUTHENTICATION') return { EXPOSE_IN_FETCH_INSTANCES: false };
+          if (key === 'WA_BUSINESS') return { WEBHOOK_PASSTHROUGH: false };
           return {};
         },
       } as any,
@@ -104,5 +108,51 @@ describe('MetaWebhookPassthroughService (integration)', () => {
     assert.equal(delivered, 1);
     assert.equal(emitMock.mock.calls[0].arguments[0].data._evolution.mode, 'sidecar');
     assert.equal(emitMock.mock.calls[0].arguments[0].data.entry[0].changes[0].field, 'business_capability_update');
+  });
+
+  it('skips sidecar delivery when instance passthrough is disabled', async () => {
+    const prismaRepository = {
+      instance: {
+        findFirst: mock.fn(async () => ({ name: 'meta-instance', number: 'phone-1' })),
+        findMany: mock.fn(async () => []),
+        findUnique: mock.fn(async () => ({ Setting: { metaWebhookPassthrough: false } })),
+      },
+    } as any;
+
+    const emitMock = mock.fn(async () => undefined);
+    const service = new MetaWebhookPassthroughService(
+      prismaRepository,
+      { waInstances: { 'meta-instance': { token: 't', wuid: 'w' } } } as any,
+      {
+        get: (key: string) => {
+          if (key === 'SERVER') return { URL: 'http://localhost:8080' };
+          if (key === 'AUTHENTICATION') return { EXPOSE_IN_FETCH_INSTANCES: false };
+          if (key === 'WA_BUSINESS') return { WEBHOOK_PASSTHROUGH: false };
+          return {};
+        },
+      } as any,
+      { emit: emitMock } as any,
+    );
+
+    const delivered = await service.forward(
+      {
+        object: 'whatsapp_business_account',
+        entry: [
+          {
+            id: 'waba-1',
+            changes: [
+              {
+                field: 'account_update',
+                value: { metadata: { phone_number_id: 'phone-1' } },
+              },
+            ],
+          },
+        ],
+      },
+      'sidecar',
+    );
+
+    assert.equal(delivered, 0);
+    assert.equal(emitMock.mock.callCount(), 0);
   });
 });

@@ -1,7 +1,7 @@
 import { EventManager } from '@api/integrations/event/event.manager';
 import { PrismaRepository } from '@api/repository/repository.service';
 import { WAMonitoringService } from '@api/services/monitor.service';
-import { ConfigService, WaBusiness } from '@config/env.config';
+import { ConfigService } from '@config/env.config';
 import { Logger } from '@config/logger.config';
 
 import { ChannelController, ChannelControllerInterface } from '../channel.controller';
@@ -16,7 +16,7 @@ export class MetaController extends ChannelController implements ChannelControll
   constructor(
     prismaRepository: PrismaRepository,
     waMonitor: WAMonitoringService,
-    private readonly configService: ConfigService,
+    configService: ConfigService,
     eventManager: EventManager,
   ) {
     super(prismaRepository, waMonitor);
@@ -36,10 +36,6 @@ export class MetaController extends ChannelController implements ChannelControll
 
   integrationEnabled: boolean;
 
-  private isPassthroughSidecarEnabled() {
-    return this.configService.get<WaBusiness>('WA_BUSINESS').WEBHOOK_PASSTHROUGH === true;
-  }
-
   /**
    * Dedicated raw Meta webhook endpoint handler.
    * Forwards Meta payloads using Meta's schema to configured Evolution webhooks.
@@ -58,13 +54,12 @@ export class MetaController extends ChannelController implements ChannelControll
       return { status: 'success' };
     }
 
-    // Optional sidecar: also forward raw Meta schema to configured webhooks
-    if (this.isPassthroughSidecarEnabled()) {
-      try {
-        await this.passthroughService.forward(data, 'sidecar');
-      } catch (error) {
-        this.logger.error(`Meta webhook passthrough sidecar failed: ${(error as Error).message}`);
-      }
+    // Optional sidecar: forward raw Meta schema for instances with passthrough enabled
+    // (per-instance setting and/or WA_BUSINESS_WEBHOOK_PASSTHROUGH=true)
+    try {
+      await this.passthroughService.forward(data, 'sidecar');
+    } catch (error) {
+      this.logger.error(`Meta webhook passthrough sidecar failed: ${(error as Error).message}`);
     }
 
     for (const entry of data.entry || []) {

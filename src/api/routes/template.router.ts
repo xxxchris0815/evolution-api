@@ -1,9 +1,11 @@
 import { RouterBroker } from '@api/abstract/abstract.router';
 import { InstanceDto } from '@api/dto/instance.dto';
+import { MetaWebhookConfigDto } from '@api/dto/metaWebhookConfig.dto';
 import { TemplateDeleteDto, TemplateDto, TemplateEditDto, TemplateFindByIdDto } from '@api/dto/template.dto';
 import { templateController } from '@api/server.module';
 import { ConfigService } from '@config/env.config';
 import { createMetaErrorResponse } from '@utils/errorResponse';
+import { metaWebhookConfigSchema } from '@validate/metaWebhookConfig.schema';
 import { templateDeleteSchema } from '@validate/templateDelete.schema';
 import { templateEditSchema } from '@validate/templateEdit.schema';
 import { templateFindByIdSchema } from '@validate/templateFindById.schema';
@@ -22,6 +24,8 @@ import { HttpStatus } from './index.router';
  * - GET    /template/find/:instanceName
  * - GET    /template/findById/:instanceName?templateId=
  * - GET    /template/status/:instanceName?templateId=
+ * - GET    /template/metaWebhook/:instanceName
+ * - POST   /template/metaWebhook/:instanceName
  *
  * Docs: docs/meta-templates.md
  */
@@ -145,6 +149,38 @@ export class TemplateRouter extends RouterBroker {
         } catch (error) {
           console.error('Template status error:', error);
           const errorResponse = createMetaErrorResponse(error, 'template_status');
+          res.status(errorResponse.status).json(errorResponse);
+        }
+      })
+      .get(this.routerPath('metaWebhook'), ...guards, async (req, res) => {
+        try {
+          const response = await this.dataValidate<InstanceDto>({
+            request: req,
+            schema: instanceSchema,
+            ClassRef: InstanceDto,
+            execute: (instance) => templateController.findMetaWebhookConfig(instance),
+          });
+
+          res.status(HttpStatus.OK).json(response);
+        } catch (error) {
+          console.error('Meta webhook config find error:', error);
+          const errorResponse = createMetaErrorResponse(error, 'meta_webhook_config_find');
+          res.status(errorResponse.status).json(errorResponse);
+        }
+      })
+      .post(this.routerPath('metaWebhook'), ...guards, async (req, res) => {
+        try {
+          const response = await this.dataValidate<MetaWebhookConfigDto>({
+            request: req,
+            schema: metaWebhookConfigSchema,
+            ClassRef: MetaWebhookConfigDto,
+            execute: (instance, data) => templateController.updateMetaWebhookConfig(instance, data),
+          });
+
+          res.status(HttpStatus.OK).json(response);
+        } catch (error) {
+          console.error('Meta webhook config update error:', error);
+          const errorResponse = createMetaErrorResponse(error, 'meta_webhook_config_update');
           res.status(errorResponse.status).json(errorResponse);
         }
       });

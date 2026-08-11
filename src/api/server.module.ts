@@ -40,6 +40,7 @@ import { S3Service } from './integrations/storage/s3/services/s3.service';
 import { ProviderFiles } from './provider/sessions';
 import { PrismaRepository } from './repository/repository.service';
 import { CacheService } from './services/cache.service';
+import { MetaWebhookConfigService } from './services/metaWebhookConfig.service';
 import { WAMonitoringService } from './services/monitor.service';
 import { ProxyService } from './services/proxy.service';
 import { SettingsService } from './services/settings.service';
@@ -76,7 +77,8 @@ const s3Service = new S3Service(prismaRepository);
 export const s3Controller = new S3Controller(s3Service);
 
 const templateService = new TemplateService(waMonitor, prismaRepository, configService);
-export const templateController = new TemplateController(templateService);
+const metaWebhookConfigService = new MetaWebhookConfigService(waMonitor, prismaRepository, configService);
+export const templateController = new TemplateController(templateService, metaWebhookConfigService);
 
 const proxyService = new ProxyService(waMonitor);
 export const proxyController = new ProxyController(proxyService, waMonitor);

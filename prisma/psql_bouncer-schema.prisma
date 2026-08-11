@@ -276,6 +276,7 @@ model Setting {
   readStatus      Boolean   @default(false) @db.Boolean
   syncFullHistory Boolean   @default(false) @db.Boolean
   wavoipToken     String?   @db.VarChar(100)
+  metaWebhookPassthrough Boolean @default(false) @db.Boolean
   createdAt       DateTime? @default(now()) @db.Timestamp
   updatedAt       DateTime  @updatedAt @db.Timestamp
   Instance        Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)

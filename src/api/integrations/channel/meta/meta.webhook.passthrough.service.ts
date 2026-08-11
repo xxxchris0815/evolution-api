@@ -2,7 +2,7 @@ import { EventManager } from '@api/integrations/event/event.manager';
 import { PrismaRepository } from '@api/repository/repository.service';
 import { WAMonitoringService } from '@api/services/monitor.service';
 import { Events } from '@api/types/wa.types';
-import { Auth, ConfigService, HttpServer } from '@config/env.config';
+import { Auth, ConfigService, HttpServer, WaBusiness } from '@config/env.config';
 import { Logger } from '@config/logger.config';
 
 export type MetaPassthroughMode = 'dedicated' | 'sidecar';
@@ -89,9 +89,24 @@ export class MetaWebhookPassthroughService {
     });
   }
 
+  private async isInstancePassthroughEnabled(instanceName: string): Promise<boolean> {
+    const globalEnabled = this.configService.get<WaBusiness>('WA_BUSINESS').WEBHOOK_PASSTHROUGH === true;
+    if (globalEnabled) return true;
+
+    const instance = await this.prismaRepository.instance.findUnique({
+      where: { name: instanceName },
+      include: { Setting: true },
+    });
+
+    return instance?.Setting?.metaWebhookPassthrough === true;
+  }
+
   /**
    * Forward every Meta change using Meta's native webhook schema.
    * Returns how many instance deliveries were attempted.
+   *
+   * dedicated mode: always forward to resolved instances
+   * sidecar mode: only instances with passthrough enabled (instance setting or global env)
    */
   public async forward(data: any, mode: MetaPassthroughMode = 'dedicated'): Promise<number> {
     if (data?.object !== 'whatsapp_business_account') {
@@ -103,13 +118,25 @@ export class MetaWebhookPassthroughService {
     for (const entry of data.entry || []) {
       for (const change of entry.changes || []) {
         const instanceNames = await this.resolveInstanceNames(entry, change);
+        let targets = instanceNames;
 
-        if (instanceNames.length === 0) {
-          this.logger.warn(`Meta passthrough skipped: no instance found for field=${change?.field} entry=${entry?.id}`);
+        if (mode === 'sidecar') {
+          const allowed: string[] = [];
+          for (const name of instanceNames) {
+            if (await this.isInstancePassthroughEnabled(name)) {
+              allowed.push(name);
+            }
+          }
+          targets = allowed;
+        }
+
+        if (targets.length === 0) {
+          this.logger.warn(
+            `Meta passthrough skipped: no eligible instance for field=${change?.field} entry=${entry?.id}`,
+          );
           continue;
         }
 
-        // Preserve Meta schema shape (object + entry + changes)
         const metaSchemaPayload = {
           object: data.object,
           entry: [
@@ -119,7 +146,6 @@ export class MetaWebhookPassthroughService {
               changes: [change],
             },
           ],
-          // Evolution helper metadata (non-breaking additions for routing/debug)
           _evolution: {
             mode,
             field: change?.field,
@@ -128,7 +154,7 @@ export class MetaWebhookPassthroughService {
           },
         };
 
-        for (const instanceName of instanceNames) {
+        for (const instanceName of targets) {
           await this.emitRaw(instanceName, metaSchemaPayload);
           delivered += 1;
         }

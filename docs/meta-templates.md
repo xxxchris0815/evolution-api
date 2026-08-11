@@ -130,7 +130,32 @@ Covers:
 By default Evolution normalizes only selected Meta fields (`messages`, template lifecycle).
 You can also forward **any** Meta WABA webhook field using Meta's native schema.
 
-### Option A — dedicated endpoint (recommended)
+### Manager UI (recommended)
+
+For `WHATSAPP-BUSINESS` instances, open **Templates** in the Manager:
+
+1. Copy **Standard callback URL** (`/webhook/meta`) or **Passthrough callback URL** (`/webhook/meta/passthrough`)
+2. Copy the **Verify token** into Meta App Dashboard
+3. Optionally enable **passthrough on the standard endpoint** (per instance)
+4. Activate the **META_WEBHOOK** event and set your Evolution outbound webhook URL
+
+API used by the UI:
+
+- `GET /template/metaWebhook/:instanceName`
+- `POST /template/metaWebhook/:instanceName`
+
+Body example:
+
+```json
+{
+  "passthroughEnabled": true,
+  "enableMetaWebhookEvent": true,
+  "webhookUrl": "https://your-server.com/webhook",
+  "webhookEnabled": true
+}
+```
+
+### Option A — dedicated endpoint
 
 Configure Meta's callback URL to:
 
@@ -147,14 +172,16 @@ Behavior:
 
 ### Option B — sidecar on standard endpoint
 
-Keep Meta pointing to `/webhook/meta` and enable:
+Keep Meta pointing to `/webhook/meta` and enable either:
 
 ```env
 WA_BUSINESS_WEBHOOK_PASSTHROUGH=true
 WEBHOOK_EVENTS_META_WEBHOOK=true
 ```
 
-Then `/webhook/meta` continues normal processing **and** also emits raw `meta.webhook` events.
+or per-instance `Setting.metaWebhookPassthrough=true` (Manager Templates page / `POST /template/metaWebhook`).
+
+Then `/webhook/meta` continues normal processing **and** also emits raw `meta.webhook` events for eligible instances.
 
 ### Consumer payload shape
 
@@ -185,7 +212,7 @@ Then `/webhook/meta` continues normal processing **and** also emits raw `meta.we
 }
 ```
 
-Enable the event in instance webhook settings (`META_WEBHOOK`) or globally via env.
+Enable the event in instance webhook settings (`META_WEBHOOK`), via the Manager Templates Meta webhook panel, or globally via env.
 
 ## Related
 
