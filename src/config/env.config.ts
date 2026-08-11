@@ -91,6 +91,10 @@ export type EventsRabbitmq = {
   CALL: boolean;
   TYPEBOT_START: boolean;
   TYPEBOT_CHANGE_STATUS: boolean;
+  TEMPLATE_STATUS_UPDATE: boolean;
+  TEMPLATE_QUALITY_UPDATE: boolean;
+  TEMPLATE_CATEGORY_UPDATE: boolean;
+  TEMPLATE_COMPONENTS_UPDATE: boolean;
 };
 
 export type Rabbitmq = {
@@ -150,6 +154,10 @@ export type Sqs = {
     SEND_MESSAGE: boolean;
     TYPEBOT_CHANGE_STATUS: boolean;
     TYPEBOT_START: boolean;
+    TEMPLATE_STATUS_UPDATE: boolean;
+    TEMPLATE_QUALITY_UPDATE: boolean;
+    TEMPLATE_CATEGORY_UPDATE: boolean;
+    TEMPLATE_COMPONENTS_UPDATE: boolean;
   };
 };
 
@@ -225,6 +233,10 @@ export type EventsWebhook = {
   TYPEBOT_CHANGE_STATUS: boolean;
   ERRORS: boolean;
   ERRORS_WEBHOOK: string;
+  TEMPLATE_STATUS_UPDATE: boolean;
+  TEMPLATE_QUALITY_UPDATE: boolean;
+  TEMPLATE_CATEGORY_UPDATE: boolean;
+  TEMPLATE_COMPONENTS_UPDATE: boolean;
 };
 
 export type EventsPusher = {
@@ -256,6 +268,10 @@ export type EventsPusher = {
   CALL: boolean;
   TYPEBOT_START: boolean;
   TYPEBOT_CHANGE_STATUS: boolean;
+  TEMPLATE_STATUS_UPDATE: boolean;
+  TEMPLATE_QUALITY_UPDATE: boolean;
+  TEMPLATE_CATEGORY_UPDATE: boolean;
+  TEMPLATE_COMPONENTS_UPDATE: boolean;
 };
 
 export type ApiKey = { KEY: string };
@@ -537,6 +553,10 @@ export class ConfigService {
           CALL: process.env?.RABBITMQ_EVENTS_CALL === 'true',
           TYPEBOT_START: process.env?.RABBITMQ_EVENTS_TYPEBOT_START === 'true',
           TYPEBOT_CHANGE_STATUS: process.env?.RABBITMQ_EVENTS_TYPEBOT_CHANGE_STATUS === 'true',
+          TEMPLATE_STATUS_UPDATE: process.env?.RABBITMQ_EVENTS_TEMPLATE_STATUS_UPDATE === 'true',
+          TEMPLATE_QUALITY_UPDATE: process.env?.RABBITMQ_EVENTS_TEMPLATE_QUALITY_UPDATE === 'true',
+          TEMPLATE_CATEGORY_UPDATE: process.env?.RABBITMQ_EVENTS_TEMPLATE_CATEGORY_UPDATE === 'true',
+          TEMPLATE_COMPONENTS_UPDATE: process.env?.RABBITMQ_EVENTS_TEMPLATE_COMPONENTS_UPDATE === 'true',
         },
       },
       NATS: {
@@ -574,6 +594,10 @@ export class ConfigService {
           CALL: process.env?.NATS_EVENTS_CALL === 'true',
           TYPEBOT_START: process.env?.NATS_EVENTS_TYPEBOT_START === 'true',
           TYPEBOT_CHANGE_STATUS: process.env?.NATS_EVENTS_TYPEBOT_CHANGE_STATUS === 'true',
+          TEMPLATE_STATUS_UPDATE: process.env?.NATS_EVENTS_TEMPLATE_STATUS_UPDATE === 'true',
+          TEMPLATE_QUALITY_UPDATE: process.env?.NATS_EVENTS_TEMPLATE_QUALITY_UPDATE === 'true',
+          TEMPLATE_CATEGORY_UPDATE: process.env?.NATS_EVENTS_TEMPLATE_CATEGORY_UPDATE === 'true',
+          TEMPLATE_COMPONENTS_UPDATE: process.env?.NATS_EVENTS_TEMPLATE_COMPONENTS_UPDATE === 'true',
         },
       },
       SQS: {
@@ -614,6 +638,10 @@ export class ConfigService {
           SEND_MESSAGE: process.env?.SQS_GLOBAL_SEND_MESSAGE === 'true',
           TYPEBOT_CHANGE_STATUS: process.env?.SQS_GLOBAL_TYPEBOT_CHANGE_STATUS === 'true',
           TYPEBOT_START: process.env?.SQS_GLOBAL_TYPEBOT_START === 'true',
+          TEMPLATE_STATUS_UPDATE: process.env?.SQS_GLOBAL_TEMPLATE_STATUS_UPDATE === 'true',
+          TEMPLATE_QUALITY_UPDATE: process.env?.SQS_GLOBAL_TEMPLATE_QUALITY_UPDATE === 'true',
+          TEMPLATE_CATEGORY_UPDATE: process.env?.SQS_GLOBAL_TEMPLATE_CATEGORY_UPDATE === 'true',
+          TEMPLATE_COMPONENTS_UPDATE: process.env?.SQS_GLOBAL_TEMPLATE_COMPONENTS_UPDATE === 'true',
         },
       },
       KAFKA: {
@@ -657,6 +685,10 @@ export class ConfigService {
           CALL: process.env?.KAFKA_EVENTS_CALL === 'true',
           TYPEBOT_START: process.env?.KAFKA_EVENTS_TYPEBOT_START === 'true',
           TYPEBOT_CHANGE_STATUS: process.env?.KAFKA_EVENTS_TYPEBOT_CHANGE_STATUS === 'true',
+          TEMPLATE_STATUS_UPDATE: process.env?.KAFKA_EVENTS_TEMPLATE_STATUS_UPDATE === 'true',
+          TEMPLATE_QUALITY_UPDATE: process.env?.KAFKA_EVENTS_TEMPLATE_QUALITY_UPDATE === 'true',
+          TEMPLATE_CATEGORY_UPDATE: process.env?.KAFKA_EVENTS_TEMPLATE_CATEGORY_UPDATE === 'true',
+          TEMPLATE_COMPONENTS_UPDATE: process.env?.KAFKA_EVENTS_TEMPLATE_COMPONENTS_UPDATE === 'true',
         },
         SASL:
           process.env?.KAFKA_SASL_ENABLED === 'true'
@@ -722,12 +754,16 @@ export class ConfigService {
           CALL: process.env?.PUSHER_EVENTS_CALL === 'true',
           TYPEBOT_START: process.env?.PUSHER_EVENTS_TYPEBOT_START === 'true',
           TYPEBOT_CHANGE_STATUS: process.env?.PUSHER_EVENTS_TYPEBOT_CHANGE_STATUS === 'true',
+          TEMPLATE_STATUS_UPDATE: process.env?.PUSHER_EVENTS_TEMPLATE_STATUS_UPDATE === 'true',
+          TEMPLATE_QUALITY_UPDATE: process.env?.PUSHER_EVENTS_TEMPLATE_QUALITY_UPDATE === 'true',
+          TEMPLATE_CATEGORY_UPDATE: process.env?.PUSHER_EVENTS_TEMPLATE_CATEGORY_UPDATE === 'true',
+          TEMPLATE_COMPONENTS_UPDATE: process.env?.PUSHER_EVENTS_TEMPLATE_COMPONENTS_UPDATE === 'true',
         },
       },
       WA_BUSINESS: {
         TOKEN_WEBHOOK: process.env.WA_BUSINESS_TOKEN_WEBHOOK || 'evolution',
         URL: process.env.WA_BUSINESS_URL || 'https://graph.facebook.com',
-        VERSION: process.env.WA_BUSINESS_VERSION || 'v18.0',
+        VERSION: process.env.WA_BUSINESS_VERSION || 'v26.0',
         LANGUAGE: process.env.WA_BUSINESS_LANGUAGE || 'en',
       },
       LOG: {
@@ -779,6 +815,10 @@ export class ConfigService {
           CALL: process.env?.WEBHOOK_EVENTS_CALL === 'true',
           TYPEBOT_START: process.env?.WEBHOOK_EVENTS_TYPEBOT_START === 'true',
           TYPEBOT_CHANGE_STATUS: process.env?.WEBHOOK_EVENTS_TYPEBOT_CHANGE_STATUS === 'true',
+          TEMPLATE_STATUS_UPDATE: process.env?.WEBHOOK_EVENTS_TEMPLATE_STATUS_UPDATE === 'true',
+          TEMPLATE_QUALITY_UPDATE: process.env?.WEBHOOK_EVENTS_TEMPLATE_QUALITY_UPDATE === 'true',
+          TEMPLATE_CATEGORY_UPDATE: process.env?.WEBHOOK_EVENTS_TEMPLATE_CATEGORY_UPDATE === 'true',
+          TEMPLATE_COMPONENTS_UPDATE: process.env?.WEBHOOK_EVENTS_TEMPLATE_COMPONENTS_UPDATE === 'true',
           ERRORS: process.env?.WEBHOOK_EVENTS_ERRORS === 'true',
           ERRORS_WEBHOOK: process.env?.WEBHOOK_EVENTS_ERRORS_WEBHOOK || '',
         },

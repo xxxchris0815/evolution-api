@@ -1,9 +1,9 @@
 import { InstanceDto } from '@api/dto/instance.dto';
-import { TemplateDto } from '@api/dto/template.dto';
+import { TemplateDto, TemplateFindByIdDto, TemplateFindDto } from '@api/dto/template.dto';
 import { PrismaRepository } from '@api/repository/repository.service';
 import { ConfigService, WaBusiness } from '@config/env.config';
 import { Logger } from '@config/logger.config';
-import axios from 'axios';
+import axios, { AxiosRequestConfig } from 'axios';
 
 import { WAMonitoringService } from './monitor.service';
 
@@ -19,8 +19,29 @@ export class TemplateService {
   private businessId: string;
   private token: string;
 
-  public async find(instance: InstanceDto) {
-    const getInstance = await this.waMonitor.waInstances[instance.instanceName].instance;
+  private get graphConfig() {
+    const waBusiness = this.configService.get<WaBusiness>('WA_BUSINESS');
+    return {
+      url: waBusiness.URL,
+      version: waBusiness.VERSION,
+    };
+  }
+
+  private get authHeaders() {
+    return { 'Content-Type': 'application/json', Authorization: `Bearer ${this.token}` };
+  }
+
+  private throwMetaError(response: any, fallbackMessage: string) {
+    if (response?.error) {
+      const metaError = new Error(response.error.message || 'WhatsApp API Error');
+      (metaError as any).template = response.error;
+      throw metaError;
+    }
+    throw new Error(fallbackMessage);
+  }
+
+  private async loadInstanceCredentials(instance: InstanceDto) {
+    const getInstance = await this.waMonitor.waInstances[instance.instanceName]?.instance;
 
     if (!getInstance) {
       throw new Error('Instance not found');
@@ -29,27 +50,42 @@ export class TemplateService {
     this.businessId = getInstance.businessId;
     this.token = getInstance.token;
 
-    const response = await this.requestTemplate({}, 'GET');
+    return getInstance;
+  }
 
-    if (!response) {
-      throw new Error('Error to create template');
+  public async find(instance: InstanceDto, filters: TemplateFindDto = {}) {
+    await this.loadInstanceCredentials(instance);
+
+    const response = await this.requestTemplate({}, 'GET', filters);
+
+    if (!response || response.error) {
+      this.throwMetaError(response, 'Error to find templates');
     }
 
-    return response.data;
+    return response;
+  }
+
+  public async findById(instance: InstanceDto, data: TemplateFindByIdDto) {
+    await this.loadInstanceCredentials(instance);
+
+    const fields =
+      data.fields ||
+      'id,name,status,category,language,components,rejected_reason,quality_score,previous_category,parameter_format';
+
+    const response = await this.requestTemplateById(data.templateId, fields);
+
+    if (!response || response.error) {
+      this.throwMetaError(response, 'Error to find template by id');
+    }
+
+    return response;
   }
 
   public async create(instance: InstanceDto, data: TemplateDto) {
     try {
-      const getInstance = await this.waMonitor.waInstances[instance.instanceName].instance;
+      const getInstance = await this.loadInstanceCredentials(instance);
 
-      if (!getInstance) {
-        throw new Error('Instance not found');
-      }
-
-      this.businessId = getInstance.businessId;
-      this.token = getInstance.token;
-
-      const postData = {
+      const postData: Record<string, unknown> = {
         name: data.name,
         category: data.category,
         allow_category_change: data.allowCategoryChange,
@@ -57,17 +93,22 @@ export class TemplateService {
         components: data.components,
       };
 
+      if (data.parameterFormat) {
+        postData.parameter_format = data.parameterFormat;
+      }
+
+      if (data.libraryTemplateName) {
+        postData.library_template_name = data.libraryTemplateName;
+      }
+
+      if (data.libraryTemplateButtonInputs) {
+        postData.library_template_button_inputs = data.libraryTemplateButtonInputs;
+      }
+
       const response = await this.requestTemplate(postData, 'POST');
 
       if (!response || response.error) {
-        // If there's an error from WhatsApp API, throw it with the real error data
-        if (response && response.error) {
-          // Create an error object that includes the template field for Meta errors
-          const metaError = new Error(response.error.message || 'WhatsApp API Error');
-          (metaError as any).template = response.error;
-          throw metaError;
-        }
-        throw new Error('Error to create template');
+        this.throwMetaError(response, 'Error to create template');
       }
 
       const template = await this.prismaRepository.template.create({
@@ -83,7 +124,6 @@ export class TemplateService {
       return template;
     } catch (error) {
       this.logger.error('Error in create template: ' + error);
-      // Propagate the real error instead of "engolindo" it
       throw error;
     }
   }
@@ -92,13 +132,7 @@ export class TemplateService {
     instance: InstanceDto,
     data: { templateId: string; category?: string; components?: any; allowCategoryChange?: boolean; ttl?: number },
   ) {
-    const getInstance = await this.waMonitor.waInstances[instance.instanceName].instance;
-    if (!getInstance) {
-      throw new Error('Instance not found');
-    }
-
-    this.businessId = getInstance.businessId;
-    this.token = getInstance.token;
+    const getInstance = await this.loadInstanceCredentials(instance);
 
     const payload: Record<string, unknown> = {};
     if (typeof data.category === 'string') payload.category = data.category;
@@ -109,39 +143,49 @@ export class TemplateService {
     const response = await this.requestEditTemplate(data.templateId, payload);
 
     if (!response || response.error) {
-      if (response && response.error) {
-        const metaError = new Error(response.error.message || 'WhatsApp API Error');
-        (metaError as any).template = response.error;
-        throw metaError;
+      this.throwMetaError(response, 'Error to edit template');
+    }
+
+    try {
+      const existing = await this.prismaRepository.template.findFirst({
+        where: { templateId: data.templateId, instanceId: getInstance.id },
+      });
+
+      if (existing) {
+        const currentTemplate =
+          existing.template && typeof existing.template === 'object'
+            ? (existing.template as Record<string, unknown>)
+            : {};
+
+        await this.prismaRepository.template.update({
+          where: { id: existing.id },
+          data: {
+            template: {
+              ...currentTemplate,
+              ...payload,
+              id: data.templateId,
+              ...(response || {}),
+            },
+          },
+        });
       }
-      throw new Error('Error to edit template');
+    } catch (err) {
+      this.logger.warn(`Failed to sync local template after edit: ${(err as Error)?.message || String(err)}`);
     }
 
     return response;
   }
 
   public async delete(instance: InstanceDto, data: { name: string; hsmId?: string }) {
-    const getInstance = await this.waMonitor.waInstances[instance.instanceName].instance;
-    if (!getInstance) {
-      throw new Error('Instance not found');
-    }
-
-    this.businessId = getInstance.businessId;
-    this.token = getInstance.token;
+    const getInstance = await this.loadInstanceCredentials(instance);
 
     const response = await this.requestDeleteTemplate({ name: data.name, hsm_id: data.hsmId });
 
     if (!response || response.error) {
-      if (response && response.error) {
-        const metaError = new Error(response.error.message || 'WhatsApp API Error');
-        (metaError as any).template = response.error;
-        throw metaError;
-      }
-      throw new Error('Error to delete template');
+      this.throwMetaError(response, 'Error to delete template');
     }
 
     try {
-      // Best-effort local cleanup of stored template metadata
       await this.prismaRepository.template.deleteMany({
         where: {
           OR: [
@@ -159,17 +203,29 @@ export class TemplateService {
     return response;
   }
 
-  private async requestTemplate(data: any, method: string) {
+  private async requestTemplate(data: any, method: string, filters: TemplateFindDto = {}) {
     try {
-      let urlServer = this.configService.get<WaBusiness>('WA_BUSINESS').URL;
-      const version = this.configService.get<WaBusiness>('WA_BUSINESS').VERSION;
-      urlServer = `${urlServer}/${version}/${this.businessId}/message_templates`;
-      const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${this.token}` };
+      const { url, version } = this.graphConfig;
+      const urlServer = `${url}/${version}/${this.businessId}/message_templates`;
+      const headers = this.authHeaders;
 
       if (method === 'GET') {
-        const result = await axios.get(urlServer, { headers });
+        const params: Record<string, string | number> = {};
+        if (filters.status) params.status = filters.status;
+        if (filters.limit) params.limit = Number(filters.limit);
+        if (filters.after) params.after = filters.after;
+        if (filters.before) params.before = filters.before;
+        if (filters.name) params.name = filters.name;
+        if (filters.language) params.language = filters.language;
+        if (filters.category) params.category = filters.category;
+        if (filters.fields) params.fields = filters.fields;
+
+        const config: AxiosRequestConfig = { headers, params };
+        const result = await axios.get(urlServer, config);
         return result.data;
-      } else if (method === 'POST') {
+      }
+
+      if (method === 'POST') {
         const result = await axios.post(urlServer, data, { headers });
         return result.data;
       }
@@ -178,23 +234,37 @@ export class TemplateService {
         'WhatsApp API request error: ' + (e.response?.data ? JSON.stringify(e.response?.data) : e.message),
       );
 
-      // Return the complete error response from WhatsApp API
       if (e.response?.data) {
         return e.response.data;
       }
 
-      // If no response data, throw connection error
+      throw new Error(`Connection error: ${e.message}`);
+    }
+  }
+
+  private async requestTemplateById(templateId: string, fields: string) {
+    try {
+      const { url, version } = this.graphConfig;
+      const urlServer = `${url}/${version}/${templateId}`;
+      const result = await axios.get(urlServer, {
+        headers: this.authHeaders,
+        params: { fields },
+      });
+      return result.data;
+    } catch (e) {
+      this.logger.error(
+        'WhatsApp API request error: ' + (e.response?.data ? JSON.stringify(e.response?.data) : e.message),
+      );
+      if (e.response?.data) return e.response.data;
       throw new Error(`Connection error: ${e.message}`);
     }
   }
 
   private async requestEditTemplate(templateId: string, data: any) {
     try {
-      let urlServer = this.configService.get<WaBusiness>('WA_BUSINESS').URL;
-      const version = this.configService.get<WaBusiness>('WA_BUSINESS').VERSION;
-      urlServer = `${urlServer}/${version}/${templateId}`;
-      const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${this.token}` };
-      const result = await axios.post(urlServer, data, { headers });
+      const { url, version } = this.graphConfig;
+      const urlServer = `${url}/${version}/${templateId}`;
+      const result = await axios.post(urlServer, data, { headers: this.authHeaders });
       return result.data;
     } catch (e) {
       this.logger.error(
@@ -207,11 +277,12 @@ export class TemplateService {
 
   private async requestDeleteTemplate(params: { name: string; hsm_id?: string }) {
     try {
-      let urlServer = this.configService.get<WaBusiness>('WA_BUSINESS').URL;
-      const version = this.configService.get<WaBusiness>('WA_BUSINESS').VERSION;
-      urlServer = `${urlServer}/${version}/${this.businessId}/message_templates`;
-      const headers = { Authorization: `Bearer ${this.token}` };
-      const result = await axios.delete(urlServer, { headers, params });
+      const { url, version } = this.graphConfig;
+      const urlServer = `${url}/${version}/${this.businessId}/message_templates`;
+      const result = await axios.delete(urlServer, {
+        headers: { Authorization: `Bearer ${this.token}` },
+        params,
+      });
       return result.data;
     } catch (e) {
       this.logger.error(

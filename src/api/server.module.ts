@@ -113,7 +113,7 @@ export const channelController = new ChannelController(prismaRepository, waMonit
 
 // channels
 export const evolutionController = new EvolutionController(prismaRepository, waMonitor);
-export const metaController = new MetaController(prismaRepository, waMonitor);
+export const metaController = new MetaController(prismaRepository, waMonitor, configService, eventManager);
 export const baileysController = new BaileysController(waMonitor);
 
 const openaiService = new OpenaiService(waMonitor, prismaRepository, configService);

@@ -1,49 +1,50 @@
+import { EventManager } from '@api/integrations/event/event.manager';
 import { PrismaRepository } from '@api/repository/repository.service';
 import { WAMonitoringService } from '@api/services/monitor.service';
+import { ConfigService } from '@config/env.config';
 import { Logger } from '@config/logger.config';
-import axios from 'axios';
 
 import { ChannelController, ChannelControllerInterface } from '../channel.controller';
+import { isTemplateWebhookField, MetaTemplateWebhookService } from './meta.template.webhook.service';
 
 export class MetaController extends ChannelController implements ChannelControllerInterface {
   private readonly logger = new Logger('MetaController');
+  private readonly templateWebhookService: MetaTemplateWebhookService;
 
-  constructor(prismaRepository: PrismaRepository, waMonitor: WAMonitoringService) {
+  constructor(
+    prismaRepository: PrismaRepository,
+    waMonitor: WAMonitoringService,
+    configService: ConfigService,
+    eventManager: EventManager,
+  ) {
     super(prismaRepository, waMonitor);
+    this.templateWebhookService = new MetaTemplateWebhookService(
+      prismaRepository,
+      waMonitor,
+      configService,
+      eventManager,
+    );
   }
 
   integrationEnabled: boolean;
 
   public async receiveWebhook(data: any) {
-    if (data.object === 'whatsapp_business_account') {
-      if (data.entry[0]?.changes[0]?.field === 'message_template_status_update') {
-        const template = await this.prismaRepository.template.findFirst({
-          where: { templateId: `${data.entry[0].changes[0].value.message_template_id}` },
-        });
+    if (data.object !== 'whatsapp_business_account') {
+      return { status: 'success' };
+    }
 
-        if (!template) {
-          console.log('template not found');
-          return;
+    for (const entry of data.entry || []) {
+      for (const change of entry.changes || []) {
+        if (isTemplateWebhookField(change?.field)) {
+          await this.templateWebhookService.handle(change, entry.id);
+          continue;
         }
 
-        const { webhookUrl } = template;
-
-        await axios.post(webhookUrl, data.entry[0].changes[0].value, {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-        return;
-      }
-
-      data.entry?.forEach(async (entry: any) => {
-        const numberId = entry.changes[0].value.metadata.phone_number_id;
+        const numberId = change?.value?.metadata?.phone_number_id;
 
         if (!numberId) {
           this.logger.error('WebhookService -> receiveWebhookMeta -> numberId not found');
-          return {
-            status: 'success',
-          };
+          continue;
         }
 
         const instance = await this.prismaRepository.instance.findFirst({
@@ -52,17 +53,13 @@ export class MetaController extends ChannelController implements ChannelControll
 
         if (!instance) {
           this.logger.error('WebhookService -> receiveWebhookMeta -> instance not found');
-          return {
-            status: 'success',
-          };
+          continue;
         }
 
-        await this.waMonitor.waInstances[instance.name].connectToWhatsapp(data);
-
-        return {
-          status: 'success',
-        };
-      });
+        if (this.waMonitor.waInstances[instance.name]) {
+          await this.waMonitor.waInstances[instance.name].connectToWhatsapp(data);
+        }
+      }
     }
 
     return {

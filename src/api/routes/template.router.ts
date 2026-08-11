@@ -1,11 +1,12 @@
 import { RouterBroker } from '@api/abstract/abstract.router';
 import { InstanceDto } from '@api/dto/instance.dto';
-import { TemplateDeleteDto, TemplateDto, TemplateEditDto } from '@api/dto/template.dto';
+import { TemplateDeleteDto, TemplateDto, TemplateEditDto, TemplateFindByIdDto } from '@api/dto/template.dto';
 import { templateController } from '@api/server.module';
 import { ConfigService } from '@config/env.config';
 import { createMetaErrorResponse } from '@utils/errorResponse';
 import { templateDeleteSchema } from '@validate/templateDelete.schema';
 import { templateEditSchema } from '@validate/templateEdit.schema';
+import { templateFindByIdSchema } from '@validate/templateFindById.schema';
 import { instanceSchema, templateSchema } from '@validate/validate.schema';
 import { RequestHandler, Router } from 'express';
 
@@ -29,10 +30,7 @@ export class TemplateRouter extends RouterBroker {
 
           res.status(HttpStatus.CREATED).json(response);
         } catch (error) {
-          // Log error for debugging
           console.error('Template creation error:', error);
-
-          // Use utility function to create standardized error response
           const errorResponse = createMetaErrorResponse(error, 'template_creation');
           res.status(errorResponse.status).json(errorResponse);
         }
@@ -75,16 +73,65 @@ export class TemplateRouter extends RouterBroker {
             request: req,
             schema: instanceSchema,
             ClassRef: InstanceDto,
-            execute: (instance) => templateController.findTemplate(instance),
+            execute: (instance) =>
+              templateController.findTemplate(instance, {
+                status: req.query.status as string,
+                limit: req.query.limit as string,
+                after: req.query.after as string,
+                before: req.query.before as string,
+                name: req.query.name as string,
+                language: req.query.language as string,
+                category: req.query.category as string,
+                fields: req.query.fields as string,
+              }),
           });
 
           res.status(HttpStatus.OK).json(response);
         } catch (error) {
-          // Log error for debugging
           console.error('Template find error:', error);
-
-          // Use utility function to create standardized error response
           const errorResponse = createMetaErrorResponse(error, 'template_find');
+          res.status(errorResponse.status).json(errorResponse);
+        }
+      })
+      .get(this.routerPath('findById'), ...guards, async (req, res) => {
+        try {
+          req.body = {
+            templateId: req.query.templateId,
+            fields: req.query.fields,
+          };
+
+          const response = await this.dataValidate<TemplateFindByIdDto>({
+            request: req,
+            schema: templateFindByIdSchema,
+            ClassRef: TemplateFindByIdDto,
+            execute: (instance, data) => templateController.findTemplateById(instance, data),
+          });
+
+          res.status(HttpStatus.OK).json(response);
+        } catch (error) {
+          console.error('Template findById error:', error);
+          const errorResponse = createMetaErrorResponse(error, 'template_find_by_id');
+          res.status(errorResponse.status).json(errorResponse);
+        }
+      })
+      .get(this.routerPath('status'), ...guards, async (req, res) => {
+        try {
+          req.body = {
+            templateId: req.query.templateId,
+            fields: req.query.fields,
+          };
+
+          const response = await this.dataValidate<TemplateFindByIdDto>({
+            request: req,
+            schema: templateFindByIdSchema,
+            ClassRef: TemplateFindByIdDto,
+            execute: (instance, data) => templateController.findTemplateStatus(instance, data),
+          });
+
+          res.status(HttpStatus.OK).json(response);
+        } catch (error) {
+          console.error('Template status error:', error);
+          const errorResponse = createMetaErrorResponse(error, 'template_status');
           res.status(errorResponse.status).json(errorResponse);
         }
       });

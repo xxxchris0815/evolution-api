@@ -1,5 +1,5 @@
 import { InstanceDto } from '@api/dto/instance.dto';
-import { TemplateDto } from '@api/dto/template.dto';
+import { TemplateDto, TemplateFindByIdDto, TemplateFindDto } from '@api/dto/template.dto';
 import { TemplateService } from '@api/services/template.service';
 
 export class TemplateController {
@@ -9,8 +9,19 @@ export class TemplateController {
     return this.templateService.create(instance, data);
   }
 
-  public async findTemplate(instance: InstanceDto) {
-    return this.templateService.find(instance);
+  public async findTemplate(instance: InstanceDto, filters: TemplateFindDto = {}) {
+    return this.templateService.find(instance, filters);
+  }
+
+  public async findTemplateById(instance: InstanceDto, data: TemplateFindByIdDto) {
+    return this.templateService.findById(instance, data);
+  }
+
+  public async findTemplateStatus(instance: InstanceDto, data: TemplateFindByIdDto) {
+    return this.templateService.findById(instance, {
+      templateId: data.templateId,
+      fields: data.fields || 'id,name,status,rejected_reason,quality_score,category',
+    });
   }
 
   public async editTemplate(
