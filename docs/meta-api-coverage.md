@@ -13,7 +13,8 @@ Current Graph API version default: **v26.0** (`WA_BUSINESS_VERSION`).
 | Get template by id | `GET /template/findById/:instanceName?templateId=` | `GET /{template-id}` |
 | Get template status | `GET /template/status/:instanceName?templateId=` | `GET /{template-id}?fields=status,...` |
 | Send template message | `POST /message/sendTemplate/:instanceName` | `POST /{phone-number-id}/messages` |
-| Template webhooks | inbound `/webhook/meta` → event fan-out | `message_template_status_update`, quality/category/components updates |
+| Sync Meta ↔ Chatwoot templates | `POST /template/syncChatwoot/:instanceName` | Meta templates ↔ Chatwoot canned responses (`meta_` read-only vs user-owned) |
+| Template webhooks | inbound `/webhook/meta` → event fan-out (+ Chatwoot agent notify) | `message_template_status_update`, quality/category/components updates |
 | Raw Meta passthrough (optional) | `POST /webhook/meta/passthrough` or sidecar via `WA_BUSINESS_WEBHOOK_PASSTHROUGH=true` / instance `metaWebhookPassthrough` | **All** WABA webhook fields (`account_update`, `business_capability_update`, `messages`, templates, etc.) forwarded with Meta schema as `meta.webhook` |
 | Meta webhook config (Manager) | `GET/POST /template/metaWebhook/:instanceName` | Configure callback URLs, verify token display, passthrough + `META_WEBHOOK` activation |
 

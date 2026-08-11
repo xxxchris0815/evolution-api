@@ -1,8 +1,9 @@
+import { ChatwootService } from '@api/integrations/chatbot/chatwoot/services/chatwoot.service';
 import { EventManager } from '@api/integrations/event/event.manager';
 import { PrismaRepository } from '@api/repository/repository.service';
 import { WAMonitoringService } from '@api/services/monitor.service';
 import { Events } from '@api/types/wa.types';
-import { Auth, ConfigService, HttpServer } from '@config/env.config';
+import { Auth, Chatwoot, ConfigService, HttpServer } from '@config/env.config';
 import { Logger } from '@config/logger.config';
 import axios from 'axios';
 
@@ -35,6 +36,7 @@ export class MetaTemplateWebhookService {
     private readonly waMonitor: WAMonitoringService,
     private readonly configService: ConfigService,
     private readonly eventManager: EventManager,
+    private readonly chatwootService?: ChatwootService,
   ) {}
 
   private mapTemplateEvent(field: string): Events {
@@ -70,6 +72,14 @@ export class MetaTemplateWebhookService {
       apiKey: expose && instanceApikey ? instanceApikey : null,
       local: true,
     });
+
+    if (this.chatwootService && this.configService.get<Chatwoot>('CHATWOOT').ENABLED) {
+      try {
+        await this.chatwootService.notifyTemplateStatus({ instanceName, instanceId: waInstance?.instanceId }, data);
+      } catch (error) {
+        this.logger.error(`Chatwoot template notify failed: ${(error as Error).message}`);
+      }
+    }
   }
 
   public async handle(change: any, entryId?: string) {
@@ -108,6 +118,11 @@ export class MetaTemplateWebhookService {
         await this.prismaRepository.template.update({
           where: { id: template.id },
           data: {
+            name: value.message_template_name || template.name,
+            status: `${value.event || value.message_template_status || currentTemplate.status || ''}` || undefined,
+            category: `${value.new_category || value.category || currentTemplate.category || ''}` || undefined,
+            source: 'meta',
+            readOnly: true,
             template: {
               ...currentTemplate,
               id: value.message_template_id || currentTemplate.id || template.templateId,

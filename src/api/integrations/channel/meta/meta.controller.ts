@@ -1,3 +1,4 @@
+import { ChatwootService } from '@api/integrations/chatbot/chatwoot/services/chatwoot.service';
 import { EventManager } from '@api/integrations/event/event.manager';
 import { PrismaRepository } from '@api/repository/repository.service';
 import { WAMonitoringService } from '@api/services/monitor.service';
@@ -18,6 +19,7 @@ export class MetaController extends ChannelController implements ChannelControll
     waMonitor: WAMonitoringService,
     configService: ConfigService,
     eventManager: EventManager,
+    chatwootService?: ChatwootService,
   ) {
     super(prismaRepository, waMonitor);
     this.templateWebhookService = new MetaTemplateWebhookService(
@@ -25,6 +27,7 @@ export class MetaController extends ChannelController implements ChannelControll
       waMonitor,
       configService,
       eventManager,
+      chatwootService,
     );
     this.passthroughService = new MetaWebhookPassthroughService(
       prismaRepository,

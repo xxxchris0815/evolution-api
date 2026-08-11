@@ -1,17 +1,19 @@
 import { InstanceDto } from '@api/dto/instance.dto';
 import { MetaWebhookConfigDto } from '@api/dto/metaWebhookConfig.dto';
 import { TemplateDto, TemplateFindByIdDto, TemplateFindDto } from '@api/dto/template.dto';
+import { ChatwootTemplateSyncService } from '@api/integrations/chatbot/chatwoot/services/chatwoot.template.sync.service';
 import { MetaWebhookConfigService } from '@api/services/metaWebhookConfig.service';
 import { TemplateService } from '@api/services/template.service';
 
 /**
- * Thin controller for Meta message template CRUD/status operations
- * and Meta webhook configuration for the Manager UI.
+ * Thin controller for Meta message template CRUD/status operations,
+ * Meta webhook configuration, and Chatwoot template sync.
  */
 export class TemplateController {
   constructor(
     private readonly templateService: TemplateService,
     private readonly metaWebhookConfigService: MetaWebhookConfigService,
+    private readonly chatwootTemplateSyncService: ChatwootTemplateSyncService,
   ) {}
 
   public async createTemplate(instance: InstanceDto, data: TemplateDto) {
@@ -50,5 +52,9 @@ export class TemplateController {
 
   public async updateMetaWebhookConfig(instance: InstanceDto, data: MetaWebhookConfigDto) {
     return this.metaWebhookConfigService.update(instance, data);
+  }
+
+  public async syncChatwootTemplates(instance: InstanceDto) {
+    return this.chatwootTemplateSyncService.sync(instance);
   }
 }

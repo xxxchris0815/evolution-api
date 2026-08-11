@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { afterEach, describe, it, mock } from 'node:test';
 
+import axios from 'axios';
+
 import { TemplateController } from '../../src/api/controllers/template.controller';
 import { MetaWebhookConfigService } from '../../src/api/services/metaWebhookConfig.service';
 import { TemplateService } from '../../src/api/services/template.service';
@@ -24,7 +26,11 @@ describe('TemplateController (unit)', () => {
       update: mock.fn(async () => ({ passthroughEnabled: true })),
     } as unknown as MetaWebhookConfigService;
 
-    const controller = new TemplateController(service, metaWebhookConfigService);
+    const chatwootSync = {
+      sync: mock.fn(async () => ({ metaSynced: 1 })),
+    } as any;
+
+    const controller = new TemplateController(service, metaWebhookConfigService, chatwootSync);
     const instance = { instanceName: 'meta-instance' } as any;
 
     await controller.createTemplate(instance, { name: 'hello' } as any);
@@ -54,6 +60,13 @@ describe('TemplateService Graph URL building (unit)', () => {
   it('uses WA_BUSINESS version v26.0 and forwards list filters', async () => {
     const calls: Array<{ url: string; params?: any }> = [];
 
+    mock.method(axios, 'get', async (url: string) => {
+      if (String(url).includes('/message_templates')) {
+        return { data: { data: [] } };
+      }
+      return { data: {} };
+    });
+
     const service = new TemplateService(
       {
         waInstances: {
@@ -61,12 +74,17 @@ describe('TemplateService Graph URL building (unit)', () => {
             instance: {
               id: 'inst-1',
               businessId: 'waba-1',
+              number: 'phone-1',
               token: 'token-1',
             },
           },
         },
       } as any,
-      {} as any,
+      {
+        instance: {
+          update: mock.fn(async () => undefined),
+        },
+      } as any,
       {
         get: () => ({ URL: 'https://graph.facebook.com', VERSION: 'v26.0' }),
       } as any,

@@ -3,6 +3,7 @@ import { TemplateDto, TemplateFindByIdDto, TemplateFindDto } from '@api/dto/temp
 import { PrismaRepository } from '@api/repository/repository.service';
 import { ConfigService, WaBusiness } from '@config/env.config';
 import { Logger } from '@config/logger.config';
+import { resolveWhatsappBusinessAccountId } from '@utils/resolveWabaId';
 import axios, { AxiosRequestConfig } from 'axios';
 
 import { WAMonitoringService } from './monitor.service';
@@ -45,14 +46,44 @@ export class TemplateService {
   }
 
   private async loadInstanceCredentials(instance: InstanceDto) {
-    const getInstance = await this.waMonitor.waInstances[instance.instanceName]?.instance;
+    const waInstance = this.waMonitor.waInstances[instance.instanceName];
+    const getInstance = waInstance?.instance;
 
     if (!getInstance) {
       throw new Error('Instance not found');
     }
 
-    this.businessId = getInstance.businessId;
     this.token = getInstance.token;
+
+    const graph = this.graphConfig;
+    const resolved = await resolveWhatsappBusinessAccountId({
+      graphUrl: graph.url,
+      version: graph.version,
+      token: this.token,
+      phoneNumberId: getInstance.number,
+      businessId: getInstance.businessId,
+    });
+
+    this.businessId = resolved.businessId;
+
+    if (resolved.businessId && resolved.businessId !== getInstance.businessId) {
+      this.logger.warn(
+        `Correcting instance businessId from ${getInstance.businessId} to WABA ${resolved.businessId} (${resolved.resolvedFrom})`,
+      );
+
+      try {
+        await this.prismaRepository.instance.update({
+          where: { id: getInstance.id },
+          data: { businessId: resolved.businessId },
+        });
+        getInstance.businessId = resolved.businessId;
+        if (waInstance?.instance) {
+          waInstance.instance.businessId = resolved.businessId;
+        }
+      } catch (error) {
+        this.logger.error(`Failed to persist corrected businessId: ${(error as Error).message}`);
+      }
+    }
 
     return getInstance;
   }
@@ -122,6 +153,11 @@ export class TemplateService {
           template: response,
           webhookUrl: data.webhookUrl,
           instanceId: getInstance.id,
+          source: 'meta',
+          readOnly: true,
+          language: data.language,
+          status: response.status || 'PENDING',
+          category: data.category,
         },
       });
 
@@ -137,6 +173,13 @@ export class TemplateService {
     data: { templateId: string; category?: string; components?: any; allowCategoryChange?: boolean; ttl?: number },
   ) {
     const getInstance = await this.loadInstanceCredentials(instance);
+
+    const existingGuard = await this.prismaRepository.template.findFirst({
+      where: { templateId: data.templateId, instanceId: getInstance.id },
+    });
+    if (existingGuard?.source === 'chatwoot') {
+      throw new Error('Chatwoot user templates are editable only in Chatwoot (not via Meta template API)');
+    }
 
     const payload: Record<string, unknown> = {};
     if (typeof data.category === 'string') payload.category = data.category;

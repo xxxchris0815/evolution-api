@@ -20,6 +20,7 @@ import { BaileysController } from './integrations/channel/whatsapp/baileys.contr
 import { ChatbotController } from './integrations/chatbot/chatbot.controller';
 import { ChatwootController } from './integrations/chatbot/chatwoot/controllers/chatwoot.controller';
 import { ChatwootService } from './integrations/chatbot/chatwoot/services/chatwoot.service';
+import { ChatwootTemplateSyncService } from './integrations/chatbot/chatwoot/services/chatwoot.template.sync.service';
 import { DifyController } from './integrations/chatbot/dify/controllers/dify.controller';
 import { DifyService } from './integrations/chatbot/dify/services/dify.service';
 import { EvoaiController } from './integrations/chatbot/evoai/controllers/evoai.controller';
@@ -78,7 +79,12 @@ export const s3Controller = new S3Controller(s3Service);
 
 const templateService = new TemplateService(waMonitor, prismaRepository, configService);
 const metaWebhookConfigService = new MetaWebhookConfigService(waMonitor, prismaRepository, configService);
-export const templateController = new TemplateController(templateService, metaWebhookConfigService);
+const chatwootTemplateSyncService = new ChatwootTemplateSyncService(prismaRepository, templateService);
+export const templateController = new TemplateController(
+  templateService,
+  metaWebhookConfigService,
+  chatwootTemplateSyncService,
+);
 
 const proxyService = new ProxyService(waMonitor);
 export const proxyController = new ProxyController(proxyService, waMonitor);
@@ -115,7 +121,13 @@ export const channelController = new ChannelController(prismaRepository, waMonit
 
 // channels
 export const evolutionController = new EvolutionController(prismaRepository, waMonitor);
-export const metaController = new MetaController(prismaRepository, waMonitor, configService, eventManager);
+export const metaController = new MetaController(
+  prismaRepository,
+  waMonitor,
+  configService,
+  eventManager,
+  chatwootService,
+);
 export const baileysController = new BaileysController(waMonitor);
 
 const openaiService = new OpenaiService(waMonitor, prismaRepository, configService);

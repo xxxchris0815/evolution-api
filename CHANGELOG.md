@@ -16,6 +16,13 @@
   - Manager UI: Templates page for `WHATSAPP-BUSINESS` instances
   - Manager UI: Meta webhook panel (callback URLs, verify token, passthrough toggle, META_WEBHOOK activation)
   - API: `GET/POST /template/metaWebhook/:instanceName`
+  - Chatwoot template sync: `POST /template/syncChatwoot/:instanceName`
+    - Meta APPROVED templates → Chatwoot canned responses marked `[META:readonly]` / `meta_*`
+    - Chatwoot user canned responses remain editable (`source=chatwoot`)
+    - Chatwoot outgoing Meta canned/`template_params` → `sendTemplate`
+    - Template status webhooks notify Chatwoot agents
+  - Auto-resolve WABA ID from phone `health_status` when `businessId` was set to phone number ID
+  - Expand `Instance.token` and `Chatwoot.token` to TEXT (full Meta access token length)
   - Default `WA_BUSINESS_VERSION` updated to `v26.0`
   - Docs: `docs/meta-templates.md`, `docs/meta-api-coverage.md`
   - Tests: unit + integration coverage via `npm test`

@@ -20,6 +20,7 @@ Default Graph API version: **v26.0** (`WA_BUSINESS_VERSION`).
 | `POST` | `/template/create/:instanceName` | Create a template |
 | `POST` | `/template/edit/:instanceName` | Edit an existing template |
 | `DELETE` | `/template/delete/:instanceName` | Delete a template by name/`hsmId` |
+| `POST` | `/template/syncChatwoot/:instanceName` | Sync Meta ↔ Chatwoot templates |
 | `POST` | `/message/sendTemplate/:instanceName` | Send an approved template message |
 
 ### List templates — query params
@@ -213,6 +214,35 @@ Then `/webhook/meta` continues normal processing **and** also emits raw `meta.we
 ```
 
 Enable the event in instance webhook settings (`META_WEBHOOK`), via the Manager Templates Meta webhook panel, or globally via env.
+
+## Chatwoot template sync
+
+For `WHATSAPP-BUSINESS` instances with Chatwoot enabled:
+
+```http
+POST /template/syncChatwoot/:instanceName
+```
+
+Behavior:
+
+1. Resolves the real WABA ID (auto-corrects when `businessId` was set to the phone number ID)
+2. Pulls Meta templates and upserts local `Template` rows (`source=meta`, `readOnly=true`)
+3. Pushes **APPROVED** Meta templates into Chatwoot as canned responses:
+   - short code prefix: `meta_`
+   - content marker: `[META:readonly]` (managed by Evolution — do not edit in Chatwoot)
+4. Imports non-`meta_` Chatwoot canned responses as local `source=chatwoot` / `readOnly=false` (user-owned, never overwritten by Meta sync)
+5. On Meta template status webhooks, notifies Chatwoot agents in the bot conversation
+
+### Sending approved Meta templates from Chatwoot
+
+- Use a synced `meta_*` canned response in a conversation (optionally set `params: value1 | value2`), **or**
+- Send Chatwoot `message_type=template` / `template_params`
+
+Evolution will call Meta `sendTemplate` (`/message/sendTemplate`) instead of plain text when a Meta template payload is detected.
+
+### Token storage
+
+`Instance.token` and `Chatwoot.token` are stored as `TEXT` so long Meta system-user tokens are not truncated (`VarChar(255)` was insufficient for some tokens).
 
 ## Related
 

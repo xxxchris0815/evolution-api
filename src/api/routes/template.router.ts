@@ -26,6 +26,7 @@ import { HttpStatus } from './index.router';
  * - GET    /template/status/:instanceName?templateId=
  * - GET    /template/metaWebhook/:instanceName
  * - POST   /template/metaWebhook/:instanceName
+ * - POST   /template/syncChatwoot/:instanceName
  *
  * Docs: docs/meta-templates.md
  */
@@ -181,6 +182,22 @@ export class TemplateRouter extends RouterBroker {
         } catch (error) {
           console.error('Meta webhook config update error:', error);
           const errorResponse = createMetaErrorResponse(error, 'meta_webhook_config_update');
+          res.status(errorResponse.status).json(errorResponse);
+        }
+      })
+      .post(this.routerPath('syncChatwoot'), ...guards, async (req, res) => {
+        try {
+          const response = await this.dataValidate<InstanceDto>({
+            request: req,
+            schema: instanceSchema,
+            ClassRef: InstanceDto,
+            execute: (instance) => templateController.syncChatwootTemplates(instance),
+          });
+
+          res.status(HttpStatus.OK).json(response);
+        } catch (error) {
+          console.error('Chatwoot template sync error:', error);
+          const errorResponse = createMetaErrorResponse(error, 'template_sync_chatwoot');
           res.status(errorResponse.status).json(errorResponse);
         }
       });
