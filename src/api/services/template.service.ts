@@ -7,6 +7,10 @@ import axios, { AxiosRequestConfig } from 'axios';
 
 import { WAMonitoringService } from './monitor.service';
 
+/**
+ * Service for Meta WhatsApp Business message template operations
+ * against Graph API (`WA_BUSINESS_VERSION`, default v26.0).
+ */
 export class TemplateService {
   constructor(
     private readonly waMonitor: WAMonitoringService,

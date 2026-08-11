@@ -1,20 +1,22 @@
 import { EventManager } from '@api/integrations/event/event.manager';
 import { PrismaRepository } from '@api/repository/repository.service';
 import { WAMonitoringService } from '@api/services/monitor.service';
-import { ConfigService } from '@config/env.config';
+import { ConfigService, WaBusiness } from '@config/env.config';
 import { Logger } from '@config/logger.config';
 
 import { ChannelController, ChannelControllerInterface } from '../channel.controller';
 import { isTemplateWebhookField, MetaTemplateWebhookService } from './meta.template.webhook.service';
+import { MetaWebhookPassthroughService } from './meta.webhook.passthrough.service';
 
 export class MetaController extends ChannelController implements ChannelControllerInterface {
   private readonly logger = new Logger('MetaController');
   private readonly templateWebhookService: MetaTemplateWebhookService;
+  private readonly passthroughService: MetaWebhookPassthroughService;
 
   constructor(
     prismaRepository: PrismaRepository,
     waMonitor: WAMonitoringService,
-    configService: ConfigService,
+    private readonly configService: ConfigService,
     eventManager: EventManager,
   ) {
     super(prismaRepository, waMonitor);
@@ -24,13 +26,45 @@ export class MetaController extends ChannelController implements ChannelControll
       configService,
       eventManager,
     );
+    this.passthroughService = new MetaWebhookPassthroughService(
+      prismaRepository,
+      waMonitor,
+      configService,
+      eventManager,
+    );
   }
 
   integrationEnabled: boolean;
 
+  private isPassthroughSidecarEnabled() {
+    return this.configService.get<WaBusiness>('WA_BUSINESS').WEBHOOK_PASSTHROUGH === true;
+  }
+
+  /**
+   * Dedicated raw Meta webhook endpoint handler.
+   * Forwards Meta payloads using Meta's schema to configured Evolution webhooks.
+   */
+  public async receiveWebhookPassthrough(data: any) {
+    const delivered = await this.passthroughService.forward(data, 'dedicated');
+    return {
+      status: 'success',
+      mode: 'passthrough',
+      delivered,
+    };
+  }
+
   public async receiveWebhook(data: any) {
     if (data.object !== 'whatsapp_business_account') {
       return { status: 'success' };
+    }
+
+    // Optional sidecar: also forward raw Meta schema to configured webhooks
+    if (this.isPassthroughSidecarEnabled()) {
+      try {
+        await this.passthroughService.forward(data, 'sidecar');
+      } catch (error) {
+        this.logger.error(`Meta webhook passthrough sidecar failed: ${(error as Error).message}`);
+      }
     }
 
     for (const entry of data.entry || []) {

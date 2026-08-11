@@ -40,6 +40,7 @@ export enum Events {
   TEMPLATE_QUALITY_UPDATE = 'template.quality.update',
   TEMPLATE_CATEGORY_UPDATE = 'template.category.update',
   TEMPLATE_COMPONENTS_UPDATE = 'template.components.update',
+  META_WEBHOOK = 'meta.webhook',
 }
 
 export declare namespace wa {

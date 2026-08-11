@@ -125,6 +125,68 @@ Covers:
 - Meta template webhook persistence + event emit
 - event registry registration
 
+## Optional Meta webhook passthrough (raw Meta schema)
+
+By default Evolution normalizes only selected Meta fields (`messages`, template lifecycle).
+You can also forward **any** Meta WABA webhook field using Meta's native schema.
+
+### Option A — dedicated endpoint (recommended)
+
+Configure Meta's callback URL to:
+
+```text
+https://YOUR_EVOLUTION_HOST/webhook/meta/passthrough
+```
+
+Behavior:
+
+- accepts all Meta `whatsapp_business_account` webhook fields
+- preserves Meta payload shape (`object` + `entry` + `changes`)
+- resolves instance by `phone_number_id` or WABA/`businessId`
+- emits Evolution event `META_WEBHOOK` (`meta.webhook`) to the configured webhook/queues
+
+### Option B — sidecar on standard endpoint
+
+Keep Meta pointing to `/webhook/meta` and enable:
+
+```env
+WA_BUSINESS_WEBHOOK_PASSTHROUGH=true
+WEBHOOK_EVENTS_META_WEBHOOK=true
+```
+
+Then `/webhook/meta` continues normal processing **and** also emits raw `meta.webhook` events.
+
+### Consumer payload shape
+
+```json
+{
+  "event": "meta.webhook",
+  "instance": "my-instance",
+  "data": {
+    "object": "whatsapp_business_account",
+    "entry": [
+      {
+        "id": "WABA_ID",
+        "changes": [
+          {
+            "field": "account_update",
+            "value": { }
+          }
+        ]
+      }
+    ],
+    "_evolution": {
+      "mode": "dedicated",
+      "field": "account_update",
+      "wabaId": "WABA_ID",
+      "receivedAt": "2026-08-11T20:00:00.000Z"
+    }
+  }
+}
+```
+
+Enable the event in instance webhook settings (`META_WEBHOOK`) or globally via env.
+
 ## Related
 
 - Coverage gaps / suggested next Meta endpoints: [meta-api-coverage.md](./meta-api-coverage.md)

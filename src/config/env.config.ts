@@ -95,6 +95,7 @@ export type EventsRabbitmq = {
   TEMPLATE_QUALITY_UPDATE: boolean;
   TEMPLATE_CATEGORY_UPDATE: boolean;
   TEMPLATE_COMPONENTS_UPDATE: boolean;
+  META_WEBHOOK: boolean;
 };
 
 export type Rabbitmq = {
@@ -158,6 +159,7 @@ export type Sqs = {
     TEMPLATE_QUALITY_UPDATE: boolean;
     TEMPLATE_CATEGORY_UPDATE: boolean;
     TEMPLATE_COMPONENTS_UPDATE: boolean;
+    META_WEBHOOK: boolean;
   };
 };
 
@@ -200,6 +202,11 @@ export type WaBusiness = {
   URL: string;
   VERSION: string;
   LANGUAGE: string;
+  /**
+   * When true, /webhook/meta also forwards raw Meta payloads (Meta schema)
+   * as META_WEBHOOK events in addition to normal processing.
+   */
+  WEBHOOK_PASSTHROUGH: boolean;
 };
 
 export type EventsWebhook = {
@@ -237,6 +244,7 @@ export type EventsWebhook = {
   TEMPLATE_QUALITY_UPDATE: boolean;
   TEMPLATE_CATEGORY_UPDATE: boolean;
   TEMPLATE_COMPONENTS_UPDATE: boolean;
+  META_WEBHOOK: boolean;
 };
 
 export type EventsPusher = {
@@ -272,6 +280,7 @@ export type EventsPusher = {
   TEMPLATE_QUALITY_UPDATE: boolean;
   TEMPLATE_CATEGORY_UPDATE: boolean;
   TEMPLATE_COMPONENTS_UPDATE: boolean;
+  META_WEBHOOK: boolean;
 };
 
 export type ApiKey = { KEY: string };
@@ -557,6 +566,7 @@ export class ConfigService {
           TEMPLATE_QUALITY_UPDATE: process.env?.RABBITMQ_EVENTS_TEMPLATE_QUALITY_UPDATE === 'true',
           TEMPLATE_CATEGORY_UPDATE: process.env?.RABBITMQ_EVENTS_TEMPLATE_CATEGORY_UPDATE === 'true',
           TEMPLATE_COMPONENTS_UPDATE: process.env?.RABBITMQ_EVENTS_TEMPLATE_COMPONENTS_UPDATE === 'true',
+          META_WEBHOOK: process.env?.RABBITMQ_EVENTS_META_WEBHOOK === 'true',
         },
       },
       NATS: {
@@ -598,6 +608,7 @@ export class ConfigService {
           TEMPLATE_QUALITY_UPDATE: process.env?.NATS_EVENTS_TEMPLATE_QUALITY_UPDATE === 'true',
           TEMPLATE_CATEGORY_UPDATE: process.env?.NATS_EVENTS_TEMPLATE_CATEGORY_UPDATE === 'true',
           TEMPLATE_COMPONENTS_UPDATE: process.env?.NATS_EVENTS_TEMPLATE_COMPONENTS_UPDATE === 'true',
+          META_WEBHOOK: process.env?.NATS_EVENTS_META_WEBHOOK === 'true',
         },
       },
       SQS: {
@@ -642,6 +653,7 @@ export class ConfigService {
           TEMPLATE_QUALITY_UPDATE: process.env?.SQS_GLOBAL_TEMPLATE_QUALITY_UPDATE === 'true',
           TEMPLATE_CATEGORY_UPDATE: process.env?.SQS_GLOBAL_TEMPLATE_CATEGORY_UPDATE === 'true',
           TEMPLATE_COMPONENTS_UPDATE: process.env?.SQS_GLOBAL_TEMPLATE_COMPONENTS_UPDATE === 'true',
+          META_WEBHOOK: process.env?.SQS_GLOBAL_META_WEBHOOK === 'true',
         },
       },
       KAFKA: {
@@ -689,6 +701,7 @@ export class ConfigService {
           TEMPLATE_QUALITY_UPDATE: process.env?.KAFKA_EVENTS_TEMPLATE_QUALITY_UPDATE === 'true',
           TEMPLATE_CATEGORY_UPDATE: process.env?.KAFKA_EVENTS_TEMPLATE_CATEGORY_UPDATE === 'true',
           TEMPLATE_COMPONENTS_UPDATE: process.env?.KAFKA_EVENTS_TEMPLATE_COMPONENTS_UPDATE === 'true',
+          META_WEBHOOK: process.env?.KAFKA_EVENTS_META_WEBHOOK === 'true',
         },
         SASL:
           process.env?.KAFKA_SASL_ENABLED === 'true'
@@ -758,6 +771,7 @@ export class ConfigService {
           TEMPLATE_QUALITY_UPDATE: process.env?.PUSHER_EVENTS_TEMPLATE_QUALITY_UPDATE === 'true',
           TEMPLATE_CATEGORY_UPDATE: process.env?.PUSHER_EVENTS_TEMPLATE_CATEGORY_UPDATE === 'true',
           TEMPLATE_COMPONENTS_UPDATE: process.env?.PUSHER_EVENTS_TEMPLATE_COMPONENTS_UPDATE === 'true',
+          META_WEBHOOK: process.env?.PUSHER_EVENTS_META_WEBHOOK === 'true',
         },
       },
       WA_BUSINESS: {
@@ -765,6 +779,7 @@ export class ConfigService {
         URL: process.env.WA_BUSINESS_URL || 'https://graph.facebook.com',
         VERSION: process.env.WA_BUSINESS_VERSION || 'v26.0',
         LANGUAGE: process.env.WA_BUSINESS_LANGUAGE || 'en',
+        WEBHOOK_PASSTHROUGH: process.env?.WA_BUSINESS_WEBHOOK_PASSTHROUGH === 'true',
       },
       LOG: {
         LEVEL:
@@ -819,6 +834,7 @@ export class ConfigService {
           TEMPLATE_QUALITY_UPDATE: process.env?.WEBHOOK_EVENTS_TEMPLATE_QUALITY_UPDATE === 'true',
           TEMPLATE_CATEGORY_UPDATE: process.env?.WEBHOOK_EVENTS_TEMPLATE_CATEGORY_UPDATE === 'true',
           TEMPLATE_COMPONENTS_UPDATE: process.env?.WEBHOOK_EVENTS_TEMPLATE_COMPONENTS_UPDATE === 'true',
+          META_WEBHOOK: process.env?.WEBHOOK_EVENTS_META_WEBHOOK === 'true',
           ERRORS: process.env?.WEBHOOK_EVENTS_ERRORS === 'true',
           ERRORS_WEBHOOK: process.env?.WEBHOOK_EVENTS_ERRORS_WEBHOOK || '',
         },

@@ -171,5 +171,6 @@ export class EventController {
     'TEMPLATE_QUALITY_UPDATE',
     'TEMPLATE_CATEGORY_UPDATE',
     'TEMPLATE_COMPONENTS_UPDATE',
+    'META_WEBHOOK',
   ];
 }

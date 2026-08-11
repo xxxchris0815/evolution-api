@@ -8,6 +8,10 @@
   - Improved create/edit/delete flows (library template fields, local Prisma sync on edit)
   - Inbound Meta template webhooks now persist status and emit Evolution events:
     `TEMPLATE_STATUS_UPDATE`, `TEMPLATE_QUALITY_UPDATE`, `TEMPLATE_CATEGORY_UPDATE`, `TEMPLATE_COMPONENTS_UPDATE`
+  - Optional raw Meta webhook passthrough:
+    - dedicated endpoint `GET/POST /webhook/meta/passthrough`
+    - or sidecar on `/webhook/meta` via `WA_BUSINESS_WEBHOOK_PASSTHROUGH=true`
+    - emits `META_WEBHOOK` (`meta.webhook`) preserving Meta's native schema
   - Manager UI: Templates page for `WHATSAPP-BUSINESS` instances
   - Default `WA_BUSINESS_VERSION` updated to `v26.0`
   - Docs: `docs/meta-templates.md`, `docs/meta-api-coverage.md`

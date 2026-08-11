@@ -10,12 +10,14 @@ describe('Template event registry (integration)', () => {
     assert.equal(Events.TEMPLATE_QUALITY_UPDATE, 'template.quality.update');
     assert.equal(Events.TEMPLATE_CATEGORY_UPDATE, 'template.category.update');
     assert.equal(Events.TEMPLATE_COMPONENTS_UPDATE, 'template.components.update');
+    assert.equal(Events.META_WEBHOOK, 'meta.webhook');
 
     for (const eventName of [
       'TEMPLATE_STATUS_UPDATE',
       'TEMPLATE_QUALITY_UPDATE',
       'TEMPLATE_CATEGORY_UPDATE',
       'TEMPLATE_COMPONENTS_UPDATE',
+      'META_WEBHOOK',
     ]) {
       assert.ok(EventController.events.includes(eventName), `${eventName} missing from EventController.events`);
     }

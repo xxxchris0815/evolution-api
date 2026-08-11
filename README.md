@@ -160,6 +160,7 @@ Evolution API supports WhatsApp Business message template lifecycle management a
 - List / create / edit / delete templates
 - Get template by ID and template status
 - Inbound Meta template status/quality/category webhooks with Evolution event fan-out
+- Optional raw Meta webhook passthrough (`/webhook/meta/passthrough` or `WA_BUSINESS_WEBHOOK_PASSTHROUGH=true`) emitting `meta.webhook`
 - Manager UI page for `WHATSAPP-BUSINESS` instances
 
 See [docs/meta-templates.md](./docs/meta-templates.md) and [docs/meta-api-coverage.md](./docs/meta-api-coverage.md).
