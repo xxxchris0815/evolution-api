@@ -17,6 +17,16 @@ export function isTemplateWebhookField(field?: string): boolean {
   return !!field && TEMPLATE_WEBHOOK_FIELDS.has(field);
 }
 
+/**
+ * Handles Meta WhatsApp Business Account template lifecycle webhooks
+ * and emits Evolution events for webhook/queue fan-out.
+ *
+ * Supported Meta fields:
+ * - message_template_status_update
+ * - message_template_quality_update
+ * - template_category_update
+ * - message_template_components_update
+ */
 export class MetaTemplateWebhookService {
   private readonly logger = new Logger('MetaTemplateWebhookService');
 

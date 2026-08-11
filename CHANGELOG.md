@@ -1,3 +1,18 @@
+# Unreleased
+
+### Features
+
+* **Meta WhatsApp Business Templates**: Extend template lifecycle for Graph API v26.0
+  - Added `GET /template/findById/:instanceName` and `GET /template/status/:instanceName`
+  - Enhanced `GET /template/find/:instanceName` with Meta filters and pagination cursors
+  - Improved create/edit/delete flows (library template fields, local Prisma sync on edit)
+  - Inbound Meta template webhooks now persist status and emit Evolution events:
+    `TEMPLATE_STATUS_UPDATE`, `TEMPLATE_QUALITY_UPDATE`, `TEMPLATE_CATEGORY_UPDATE`, `TEMPLATE_COMPONENTS_UPDATE`
+  - Manager UI: Templates page for `WHATSAPP-BUSINESS` instances
+  - Default `WA_BUSINESS_VERSION` updated to `v26.0`
+  - Docs: `docs/meta-templates.md`, `docs/meta-api-coverage.md`
+  - Tests: unit + integration coverage via `npm test`
+
 # 2.3.7 (2025-12-05)
 
 ### Features

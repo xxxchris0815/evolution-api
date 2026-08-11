@@ -154,6 +154,16 @@ RabbitMQ, Amazon SQS, NATS, Pusher and WebSocket for events. Configurable per in
 ### Media handling
 Local storage or S3/MinIO. Automatic media download from WhatsApp. Optional audio transcription via OpenAI.
 
+### Meta Cloud API message templates
+Evolution API supports WhatsApp Business message template lifecycle management against Graph API **v26.0**:
+
+- List / create / edit / delete templates
+- Get template by ID and template status
+- Inbound Meta template status/quality/category webhooks with Evolution event fan-out
+- Manager UI page for `WHATSAPP-BUSINESS` instances
+
+See [docs/meta-templates.md](./docs/meta-templates.md) and [docs/meta-api-coverage.md](./docs/meta-api-coverage.md).
+
 ---
 
 ## Documentation
@@ -162,6 +172,8 @@ Local storage or S3/MinIO. Automatic media download from WhatsApp. Optional audi
 |---|---|
 | Website | [evolutionfoundation.com.br](https://evolutionfoundation.com.br) |
 | Documentation | [docs.evolutionfoundation.com.br](https://docs.evolutionfoundation.com.br) |
+| Meta templates (local) | [docs/meta-templates.md](./docs/meta-templates.md) |
+| Meta API coverage notes | [docs/meta-api-coverage.md](./docs/meta-api-coverage.md) |
 | Community | [evolutionfoundation.com.br/community](https://evolutionfoundation.com.br/community) |
 | Docker Hub | [evoapicloud/evolution-api](https://hub.docker.com/r/evoapicloud/evolution-api) |
 | Changelog | [CHANGELOG.md](./CHANGELOG.md) |

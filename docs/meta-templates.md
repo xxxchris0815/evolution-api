@@ -1,0 +1,130 @@
+# Meta WhatsApp Cloud API — Message Templates
+
+English documentation for Evolution API Meta/WhatsApp Business template management.
+
+Default Graph API version: **v26.0** (`WA_BUSINESS_VERSION`).
+
+## Requirements
+
+- Instance integration: `WHATSAPP-BUSINESS`
+- Instance fields: `token` (Meta access token), `businessId` (WABA ID), `number` (phone number ID)
+- Authentication header: `apikey`
+
+## REST endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/template/find/:instanceName` | List templates from Meta |
+| `GET` | `/template/findById/:instanceName?templateId=` | Get one template by Meta ID |
+| `GET` | `/template/status/:instanceName?templateId=` | Get template status/quality fields |
+| `POST` | `/template/create/:instanceName` | Create a template |
+| `POST` | `/template/edit/:instanceName` | Edit an existing template |
+| `DELETE` | `/template/delete/:instanceName` | Delete a template by name/`hsmId` |
+| `POST` | `/message/sendTemplate/:instanceName` | Send an approved template message |
+
+### List templates — query params
+
+- `status` — e.g. `APPROVED`, `PENDING`, `REJECTED`, `PAUSED`, `DISABLED`
+- `limit` — page size
+- `after` / `before` — pagination cursors
+- `name`, `language`, `category`
+- `fields` — Meta field selection
+
+### Create body example
+
+```json
+{
+  "name": "order_update",
+  "category": "UTILITY",
+  "allowCategoryChange": true,
+  "language": "en_US",
+  "components": [
+    {
+      "type": "BODY",
+      "text": "Hello {{1}}, your order {{2}} is ready."
+    }
+  ],
+  "webhookUrl": "https://example.com/template-status"
+}
+```
+
+Optional create fields:
+
+- `parameterFormat`: `POSITIONAL` | `NAMED`
+- `libraryTemplateName`
+- `libraryTemplateButtonInputs`
+
+### Find by ID / status examples
+
+```bash
+curl -H "apikey: YOUR_KEY" \
+  "http://localhost:8080/template/findById/my-instance?templateId=123456789"
+
+curl -H "apikey: YOUR_KEY" \
+  "http://localhost:8080/template/status/my-instance?templateId=123456789"
+```
+
+## Inbound Meta webhooks
+
+Endpoint: `GET|POST /webhook/meta`
+
+Handled template fields:
+
+- `message_template_status_update`
+- `message_template_quality_update`
+- `template_category_update`
+- `message_template_components_update`
+
+Behavior:
+
+1. Updates local Prisma `Template` JSON metadata when a matching record exists
+2. Optionally forwards to the per-template `webhookUrl` saved at create time
+3. Emits Evolution events through webhook / websocket / RabbitMQ / SQS / NATS / Kafka / Pusher
+
+## Evolution events
+
+| Event constant | Wire value |
+|---|---|
+| `TEMPLATE_STATUS_UPDATE` | `template.status.update` |
+| `TEMPLATE_QUALITY_UPDATE` | `template.quality.update` |
+| `TEMPLATE_CATEGORY_UPDATE` | `template.category.update` |
+| `TEMPLATE_COMPONENTS_UPDATE` | `template.components.update` |
+
+Enable globally via env, for example:
+
+```env
+WA_BUSINESS_VERSION=v26.0
+WEBHOOK_EVENTS_TEMPLATE_STATUS_UPDATE=true
+WEBHOOK_EVENTS_TEMPLATE_QUALITY_UPDATE=true
+WEBHOOK_EVENTS_TEMPLATE_CATEGORY_UPDATE=true
+WEBHOOK_EVENTS_TEMPLATE_COMPONENTS_UPDATE=true
+```
+
+## Manager UI
+
+Path: `/manager/instance/:instanceId/templates`
+
+Visible only for instances with integration `WHATSAPP-BUSINESS`.
+
+Supports:
+
+- list + status filter
+- create template (body/footer)
+- delete template
+
+## Tests
+
+```bash
+npm test
+```
+
+Covers:
+
+- template controller delegation
+- Graph URL/version + list filters
+- Meta template webhook persistence + event emit
+- event registry registration
+
+## Related
+
+- Coverage gaps / suggested next Meta endpoints: [meta-api-coverage.md](./meta-api-coverage.md)

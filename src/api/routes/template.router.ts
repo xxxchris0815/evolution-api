@@ -12,6 +12,19 @@ import { RequestHandler, Router } from 'express';
 
 import { HttpStatus } from './index.router';
 
+/**
+ * WhatsApp Business message template routes (Meta Graph API).
+ *
+ * Endpoints:
+ * - POST   /template/create/:instanceName
+ * - POST   /template/edit/:instanceName
+ * - DELETE /template/delete/:instanceName
+ * - GET    /template/find/:instanceName
+ * - GET    /template/findById/:instanceName?templateId=
+ * - GET    /template/status/:instanceName?templateId=
+ *
+ * Docs: docs/meta-templates.md
+ */
 export class TemplateRouter extends RouterBroker {
   constructor(
     readonly configService: ConfigService,

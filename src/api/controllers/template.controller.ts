@@ -2,6 +2,9 @@ import { InstanceDto } from '@api/dto/instance.dto';
 import { TemplateDto, TemplateFindByIdDto, TemplateFindDto } from '@api/dto/template.dto';
 import { TemplateService } from '@api/services/template.service';
 
+/**
+ * Thin controller for Meta message template CRUD/status operations.
+ */
 export class TemplateController {
   constructor(private readonly templateService: TemplateService) {}
 
