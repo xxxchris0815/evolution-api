@@ -41,6 +41,7 @@ describe('TemplateController (unit)', () => {
     await controller.deleteTemplate(instance, { name: 'hello', hsmId: '123' });
     await controller.findMetaWebhookConfig(instance);
     await controller.updateMetaWebhookConfig(instance, { passthroughEnabled: true });
+    await controller.syncChatwootTemplates(instance);
 
     assert.equal((service.create as any).mock.callCount(), 1);
     assert.equal((service.find as any).mock.callCount(), 1);
@@ -49,6 +50,7 @@ describe('TemplateController (unit)', () => {
     assert.equal((service.delete as any).mock.callCount(), 1);
     assert.equal((metaWebhookConfigService.find as any).mock.callCount(), 1);
     assert.equal((metaWebhookConfigService.update as any).mock.callCount(), 1);
+    assert.equal(chatwootSync.sync.mock.callCount(), 1);
 
     const statusCall = (service.findById as any).mock.calls[1].arguments[1];
     assert.equal(statusCall.templateId, '123');
@@ -120,5 +122,64 @@ describe('TemplateService Graph URL building (unit)', () => {
     assert.deepEqual(calls[0].params, { status: 'APPROVED', limit: 10, name: 'hello' });
     assert.equal(calls[1].url, 'https://graph.facebook.com/v26.0/99');
     assert.match(calls[1].params.fields, /status/);
+  });
+
+  it('rejects edit for Chatwoot-sourced user templates', async () => {
+    mock.method(axios, 'get', async (url: string) => {
+      if (String(url).includes('/message_templates')) {
+        return { data: { data: [] } };
+      }
+      return { data: {} };
+    });
+
+    const service = new TemplateService(
+      {
+        waInstances: {
+          'meta-instance': {
+            instance: {
+              id: 'inst-1',
+              businessId: 'waba-1',
+              number: 'phone-1',
+              token: 'token-1',
+            },
+          },
+        },
+      } as any,
+      {
+        instance: { update: mock.fn(async () => undefined) },
+        template: {
+          findFirst: mock.fn(async () => ({
+            id: 'local-1',
+            templateId: 'chatwoot:inst-1:10',
+            source: 'chatwoot',
+            readOnly: false,
+          })),
+        },
+      } as any,
+      {
+        get: () => ({ URL: 'https://graph.facebook.com', VERSION: 'v26.0' }),
+      } as any,
+    );
+
+    await assert.rejects(
+      () =>
+        service.edit({ instanceName: 'meta-instance' } as any, {
+          templateId: 'chatwoot:inst-1:10',
+          category: 'UTILITY',
+        }),
+      /Chatwoot user templates are editable only in Chatwoot/,
+    );
+  });
+});
+
+describe('Token storage schema (unit)', () => {
+  it('defines Instance.token and Chatwoot.token as Text for full Meta access tokens', async () => {
+    const fs = await import('node:fs/promises');
+    const schema = await fs.readFile(new URL('../../prisma/postgresql-schema.prisma', import.meta.url), 'utf8');
+
+    assert.match(schema, /model Instance \{[\s\S]*?token\s+String\?\s+@db\.Text/);
+    assert.match(schema, /model Chatwoot \{[\s\S]*?token\s+String\?\s+@db\.Text/);
+    assert.match(schema, /model Template \{[\s\S]*?source\s+String\s+@default\("meta"\)/);
+    assert.match(schema, /model Template \{[\s\S]*?readOnly\s+Boolean\s+@default\(true\)/);
   });
 });
