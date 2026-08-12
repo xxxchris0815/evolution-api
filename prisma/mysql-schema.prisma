@@ -70,7 +70,7 @@ model Instance {
   integration             String?                  @db.VarChar(100)
   number                  String?                  @db.VarChar(100)
   businessId              String?                  @db.VarChar(100)
-  token                   String?                  @db.VarChar(255)
+  token                   String?                  @db.Text
   clientName              String?                  @db.VarChar(100)
   disconnectionReasonCode Int?                     @db.Int
   disconnectionObject     Json?                    @db.Json
@@ -218,7 +218,7 @@ model Chatwoot {
   id                      String    @id @default(cuid())
   enabled                 Boolean?  @default(true)
   accountId               String?   @db.VarChar(100)
-  token                   String?   @db.VarChar(100)
+  token                   String?   @db.Text
   url                     String?   @db.VarChar(500)
   nameInbox               String?   @db.VarChar(100)
   signMsg                 Boolean?  @default(false)
@@ -275,6 +275,7 @@ model Setting {
   readStatus      Boolean   @default(false)
   syncFullHistory Boolean   @default(false)
   wavoipToken     String?   @db.VarChar(100)
+  metaWebhookPassthrough Boolean @default(false)
   createdAt       DateTime? @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamp
   updatedAt       DateTime  @updatedAt @db.Timestamp
   Instance        Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
@@ -495,16 +496,27 @@ model OpenaiSetting {
 }
 
 model Template {
-  id         String    @id @default(cuid())
-  templateId String    @unique @db.VarChar(255)
-  name       String    @unique @db.VarChar(255)
-  template   Json      @db.Json
-  webhookUrl String?   @db.VarChar(500)
-  createdAt  DateTime? @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamp
-  updatedAt  DateTime  @updatedAt @db.Timestamp
-  Instance   Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
-  instanceId String
+  id               String    @id @default(cuid())
+  templateId       String    @unique @db.VarChar(255)
+  name             String    @db.VarChar(255)
+  template         Json      @db.Json
+  webhookUrl       String?   @db.VarChar(500)
+  source           String    @default("meta") @db.VarChar(50)
+  readOnly         Boolean   @default(true)
+  language         String?   @db.VarChar(50)
+  status           String?   @db.VarChar(50)
+  category         String?   @db.VarChar(50)
+  chatwootCannedId String?   @db.VarChar(100)
+  createdAt        DateTime? @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamp
+  updatedAt        DateTime  @updatedAt @db.Timestamp
+  Instance         Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  instanceId       String
+
+  @@index([instanceId])
+  @@index([instanceId, name])
+  @@index([source])
 }
+
 
 model Dify {
   id              String           @id @default(cuid())

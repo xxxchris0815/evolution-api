@@ -7,4 +7,6 @@ export class SettingsDto {
   readStatus?: boolean;
   syncFullHistory?: boolean;
   wavoipToken?: string;
+  /** Forward raw Meta webhook schema from /webhook/meta for this instance */
+  metaWebhookPassthrough?: boolean;
 }
