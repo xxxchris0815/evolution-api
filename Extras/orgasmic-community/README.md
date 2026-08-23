@@ -1,4 +1,4 @@
-# ORGAMSIC Community Plugins
+# ORGASMIC Community Plugins
 
 Moved to the dedicated repository:
 
