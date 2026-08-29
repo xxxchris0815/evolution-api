@@ -47,6 +47,20 @@ describe('Meta message status webhook shape (unit)', () => {
     assert.equal(content.metadata.phone_number_id, '1170931486111299');
   });
 
+  it('does not assume contacts[].profile exists on status ACKs', () => {
+    const statusPayloadContacts = [
+      {
+        wa_id: '491601865421',
+        user_id: 'DE.1096280406907531',
+      },
+    ] as Array<{ wa_id: string; user_id: string; profile?: { name?: string } }>;
+
+    const contactProfile = statusPayloadContacts[0]?.profile;
+    const pushName = contactProfile?.name || statusPayloadContacts[0]?.wa_id;
+    assert.equal(pushName, '491601865421');
+    assert.equal(contactProfile, undefined);
+  });
+
   it('normalizes Meta status strings the same way Evolution emits them', () => {
     const statuses = ['sent', 'delivered', 'read', 'failed'];
     assert.deepEqual(

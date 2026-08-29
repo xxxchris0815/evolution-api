@@ -394,7 +394,14 @@ export class BusinessStartupService extends ChannelStartupService {
       let messageRaw: any;
       let pushName: any;
 
-      if (received.contacts) pushName = received.contacts[0].profile.name;
+      // Inbound message webhooks include contacts[].profile.name.
+      // Status ACKs only include contacts[].wa_id (no profile) — do not crash.
+      const contactProfile = received.contacts?.[0]?.profile;
+      if (contactProfile?.name) {
+        pushName = contactProfile.name;
+      } else if (received.contacts?.[0]?.wa_id) {
+        pushName = received.contacts[0].wa_id;
+      }
 
       if (received.messages) {
         const message = received.messages[0]; // Añadir esta línea para definir message
@@ -709,7 +716,9 @@ export class BusinessStartupService extends ChannelStartupService {
         });
 
         const contactRaw: any = {
-          remoteJid: received.contacts[0].profile.phone,
+          remoteJid: createJid(
+            String(received.contacts?.[0]?.profile?.phone || received.contacts?.[0]?.wa_id || key.remoteJid),
+          ),
           pushName,
           // profilePicUrl: '',
           instanceId: this.instanceId,
@@ -721,7 +730,9 @@ export class BusinessStartupService extends ChannelStartupService {
 
         if (contact) {
           const contactRaw: any = {
-            remoteJid: received.contacts[0].profile.phone,
+            remoteJid: createJid(
+              String(received.contacts?.[0]?.profile?.phone || received.contacts?.[0]?.wa_id || key.remoteJid),
+            ),
             pushName,
             // profilePicUrl: '',
             instanceId: this.instanceId,
@@ -781,7 +792,7 @@ export class BusinessStartupService extends ChannelStartupService {
 
           if (!findMessage) {
             this.logger.warn(
-              `Meta status ignored: message ${key.id} not found in DB for instance ${this.instance.name}`,
+              `Meta status ignored: message ${key.id} not found in DB for instance ${this.instance?.name || this.instanceId}`,
             );
             continue;
           }
