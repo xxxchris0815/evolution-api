@@ -23,6 +23,7 @@ import { Events, wa } from '@api/types/wa.types';
 import { AudioConverter, Chatwoot, ConfigService, Database, Openai, S3, WaBusiness } from '@config/env.config';
 import { BadRequestException, InternalServerErrorException } from '@exceptions';
 import { createJid } from '@utils/createJid';
+import { mapMetaMessageStatus } from '@utils/mapMetaMessageStatus';
 import { status } from '@utils/renderStatus';
 import { sendTelemetry } from '@utils/sendTelemetry';
 import axios from 'axios';
@@ -387,6 +388,31 @@ export class BusinessStartupService extends ChannelStartupService {
     }
 
     return messageType;
+  }
+
+  private async findMessageByWaMessageId(waMessageId: string) {
+    const byPath = await this.prismaRepository.message.findFirst({
+      where: {
+        instanceId: this.instanceId,
+        key: {
+          path: ['id'],
+          equals: waMessageId,
+        },
+      },
+    });
+
+    if (byPath) {
+      return byPath;
+    }
+
+    // Fallback for Prisma/JSON edge cases with long wamids
+    const recent = await this.prismaRepository.message.findMany({
+      where: { instanceId: this.instanceId },
+      orderBy: { messageTimestamp: 'desc' },
+      take: 100,
+    });
+
+    return recent.find((message) => (message.key as any)?.id === waMessageId) || null;
   }
 
   protected async messageHandle(received: any, database: Database, settings: any) {
@@ -780,15 +806,7 @@ export class BusinessStartupService extends ChannelStartupService {
             continue;
           }
 
-          const findMessage = await this.prismaRepository.message.findFirst({
-            where: {
-              instanceId: this.instanceId,
-              key: {
-                path: ['id'],
-                equals: key.id,
-              },
-            },
-          });
+          const findMessage = await this.findMessageByWaMessageId(String(key.id));
 
           if (!findMessage) {
             this.logger.warn(
@@ -825,7 +843,8 @@ export class BusinessStartupService extends ChannelStartupService {
             continue;
           }
 
-          if (!item.status) {
+          const mappedStatus = mapMetaMessageStatus(item.status);
+          if (!mappedStatus) {
             this.logger.warn(`Meta status webhook missing status field for message ${key.id}`);
             continue;
           }
@@ -836,15 +855,34 @@ export class BusinessStartupService extends ChannelStartupService {
             remoteJid: key.remoteJid,
             fromMe: key.fromMe,
             participant: key?.remoteJid,
-            status: String(item.status).toUpperCase(),
+            status: mappedStatus,
             instanceId: this.instanceId,
           };
 
+          this.logger.info(
+            `Emitting messages.update for ${key.id}: meta=${item.status} -> ${mappedStatus} (instance=${this.instance?.name})`,
+          );
           this.sendDataWebhook(Events.MESSAGES_UPDATE, message);
 
-          await this.prismaRepository.messageUpdate.create({
-            data: message,
-          });
+          try {
+            await this.prismaRepository.message.update({
+              where: { id: findMessage.id },
+              data: { status: mappedStatus },
+            });
+          } catch (error) {
+            this.logger.warn(
+              `Failed to persist message status ${mappedStatus} for ${key.id}: ${error?.message || error}`,
+            );
+          }
+
+          try {
+            await this.prismaRepository.messageUpdate.create({
+              data: message,
+            });
+          } catch (error) {
+            // keyId column is VarChar(100); extremely long wamids must not block webhook emission
+            this.logger.warn(`Failed to create MessageUpdate for ${key.id}: ${error?.message || error}`);
+          }
 
           if (findMessage.webhookUrl) {
             await axios.post(findMessage.webhookUrl, message);

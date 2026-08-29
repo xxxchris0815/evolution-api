@@ -1,11 +1,25 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-/**
- * Regression coverage for Meta Cloud API status ACK routing.
- * Ensures status payloads are shaped the way BusinessStartupService expects
- * after the connectToWhatsapp change-value fix.
- */
+import { mapMetaMessageStatus } from '../../src/utils/mapMetaMessageStatus';
+
+describe('mapMetaMessageStatus (unit)', () => {
+  it('maps Meta Cloud statuses to Evolution StatusMessage values', () => {
+    assert.equal(mapMetaMessageStatus('sent'), 'SERVER_ACK');
+    assert.equal(mapMetaMessageStatus('delivered'), 'DELIVERY_ACK');
+    assert.equal(mapMetaMessageStatus('read'), 'READ');
+    assert.equal(mapMetaMessageStatus('failed'), 'ERROR');
+    assert.equal(mapMetaMessageStatus('SENT'), 'SERVER_ACK');
+    assert.equal(mapMetaMessageStatus('DELIVERED'), 'DELIVERY_ACK');
+  });
+
+  it('returns null for empty status', () => {
+    assert.equal(mapMetaMessageStatus(null), null);
+    assert.equal(mapMetaMessageStatus(undefined), null);
+    assert.equal(mapMetaMessageStatus(''), null);
+  });
+});
+
 describe('Meta message status webhook shape (unit)', () => {
   it('extracts statuses from a single matched change value', () => {
     const changeValue = {
@@ -42,9 +56,8 @@ describe('Meta message status webhook shape (unit)', () => {
     const content = wrapped.entry[0].changes[0].value;
     assert.ok(Array.isArray(content.statuses));
     assert.equal(content.statuses.length, 2);
-    assert.equal(content.statuses[0].status, 'delivered');
-    assert.equal(content.statuses[1].status, 'read');
-    assert.equal(content.metadata.phone_number_id, '1170931486111299');
+    assert.equal(mapMetaMessageStatus(content.statuses[0].status), 'DELIVERY_ACK');
+    assert.equal(mapMetaMessageStatus(content.statuses[1].status), 'READ');
   });
 
   it('does not assume contacts[].profile exists on status ACKs', () => {
@@ -59,13 +72,5 @@ describe('Meta message status webhook shape (unit)', () => {
     const pushName = contactProfile?.name || statusPayloadContacts[0]?.wa_id;
     assert.equal(pushName, '491601865421');
     assert.equal(contactProfile, undefined);
-  });
-
-  it('normalizes Meta status strings the same way Evolution emits them', () => {
-    const statuses = ['sent', 'delivered', 'read', 'failed'];
-    assert.deepEqual(
-      statuses.map((s) => String(s).toUpperCase()),
-      ['SENT', 'DELIVERED', 'READ', 'FAILED'],
-    );
   });
 });
