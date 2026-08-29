@@ -124,15 +124,12 @@ import makeWASocket, {
   Product,
   proto,
   UserFacingSocketConfig,
-  WABrowserDescription,
   WAMediaUpload,
   WAMessage,
   WAMessageKey,
   WAPresence,
   WASocket,
 } from 'baileys';
-import { Label } from 'baileys/lib/Types/Label';
-import { LabelAssociation } from 'baileys/lib/Types/LabelAssociation';
 import { spawn } from 'child_process';
 import { isArray, isBase64, isURL } from 'class-validator';
 import { createHash } from 'crypto';
@@ -143,7 +140,6 @@ import Long from 'long';
 import mimeTypes from 'mime-types';
 import NodeCache from 'node-cache';
 import cron from 'node-cron';
-import { release } from 'os';
 import { join } from 'path';
 import P from 'pino';
 import qrcode, { QRCodeToDataURLOptions } from 'qrcode';
@@ -152,6 +148,13 @@ import sharp from 'sharp';
 import { PassThrough, Readable } from 'stream';
 import { v4 } from 'uuid';
 
+import {
+  BaileysLabel,
+  BaileysLabelAssociation,
+  getBaileysPackageVersion,
+  normalizeRemoteJid,
+  resolveBaileysBrowser,
+} from './baileys';
 import { BaileysMessageProcessor } from './baileysMessage.processor';
 import { useVoiceCallsBaileys } from './voiceCalls/useVoiceCallsBaileys';
 
@@ -585,7 +588,7 @@ export class BaileysStartupService extends ChannelStartupService {
 
       this.logger.info(`Phone number: ${number}`);
     } else {
-      const browser: WABrowserDescription = [session.CLIENT, session.NAME, release()];
+      const browser = resolveBaileysBrowser(session.CLIENT, session.NAME);
       browserOptions = { browser };
 
       this.logger.info(`Browser: ${browser}`);
@@ -593,7 +596,7 @@ export class BaileysStartupService extends ChannelStartupService {
 
     const baileysVersion = await fetchLatestWaWebVersion({});
     const version = baileysVersion.version;
-    const log = `Baileys version: ${version.join('.')}`;
+    const log = `Baileys package ${getBaileysPackageVersion()} | WA Web version: ${version.join('.')}`;
 
     this.logger.info(log);
 
@@ -1475,8 +1478,9 @@ export class BaileysStartupService extends ChannelStartupService {
           this.logger.verbose(messageRaw);
 
           sendTelemetry(`received.message.${messageRaw.messageType ?? 'unknown'}`);
-          if (messageRaw.key.remoteJid?.includes('@lid') && messageRaw.key.remoteJidAlt) {
-            messageRaw.key.remoteJid = messageRaw.key.remoteJidAlt;
+          const normalizedRemoteJid = normalizeRemoteJid(messageRaw.key);
+          if (normalizedRemoteJid) {
+            messageRaw.key.remoteJid = normalizedRemoteJid;
           }
           console.log(messageRaw);
 
@@ -1811,7 +1815,7 @@ export class BaileysStartupService extends ChannelStartupService {
   };
 
   private readonly labelHandle = {
-    [Events.LABELS_EDIT]: async (label: Label) => {
+    [Events.LABELS_EDIT]: async (label: BaileysLabel) => {
       this.sendDataWebhook(Events.LABELS_EDIT, { ...label, instance: this.instance.name });
 
       const labelsRepository = await this.prismaRepository.label.findMany({ where: { instanceId: this.instanceId } });
@@ -1845,7 +1849,7 @@ export class BaileysStartupService extends ChannelStartupService {
     },
 
     [Events.LABELS_ASSOCIATION]: async (
-      data: { association: LabelAssociation; type: 'remove' | 'add' },
+      data: { association: BaileysLabelAssociation; type: 'remove' | 'add' },
       database: Database,
     ) => {
       this.logger.info(

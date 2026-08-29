@@ -2,6 +2,14 @@
 
 ### Features
 
+* **Baileys**: Upgrade WhatsApp Web channel to WhiskeySockets/Baileys `7.0.0-rc14`
+  - Added Evolution Baileys compatibility module (`src/api/integrations/channel/whatsapp/baileys/`)
+  - Shared socket config builder aligned with Baileys 7.x defaults
+  - Android browser preset support via `CONFIG_SESSION_PHONE_*` (`Browsers.android` for view-once)
+  - LID → PN remote JID normalization helper used on inbound messages
+  - Postinstall patch for `whatsapp-rust-bridge` CommonJS/tsx exports (`ERR_PACKAGE_PATH_NOT_EXPORTED`)
+  - Unit + integration tests covering Baileys ↔ Evolution message processor and auth helpers
+
 * **Meta WhatsApp Business Templates**: Extend template lifecycle for Graph API v26.0
   - Added `GET /template/findById/:instanceName` and `GET /template/status/:instanceName`
   - Enhanced `GET /template/find/:instanceName` with Meta filters and pagination cursors
