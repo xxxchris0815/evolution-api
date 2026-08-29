@@ -12,6 +12,7 @@ WORKDIR /evolution
 COPY ./package*.json ./
 COPY ./tsconfig.json ./
 COPY ./tsup.config.ts ./
+COPY ./tsup.docker.config.ts ./
 # Required before npm ci: postinstall patches whatsapp-rust-bridge for CJS/tsx
 COPY ./scripts ./scripts
 
@@ -32,13 +33,11 @@ RUN chmod +x ./Docker/scripts/* && dos2unix ./Docker/scripts/*
 
 RUN ./Docker/scripts/generate_database.sh
 
-# Low-memory Docker build: single CJS entry instead of tsup entry=['src'] (CJS+ESM
-# for every file), which commonly gets SIGKILL/OOM on small VMs.
+# Deterministic low-memory production build (tested via scripts/smoke-dist.js)
 ENV NODE_OPTIONS="--max-old-space-size=2048"
 RUN npx tsc --noEmit \
-  && npx tsup src/main.ts --format cjs --outDir dist --clean --sourcemap --target node20 \
-  && mkdir -p dist/translations \
-  && cp -r src/utils/translations/. dist/translations/
+  && npx tsup --config tsup.docker.config.ts \
+  && node scripts/smoke-dist.js
 
 FROM node:24-alpine AS final
 
