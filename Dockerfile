@@ -1,7 +1,7 @@
 FROM node:24-alpine AS builder
 
 RUN apk update && \
-    apk add --no-cache git ffmpeg wget curl bash openssl
+    apk add --no-cache git ffmpeg wget curl bash openssl dos2unix
 
 LABEL version="2.3.1" description="Api to control whatsapp features through http requests." 
 LABEL maintainer="Davidson Gomes" git="https://github.com/DavidsonGomes"
@@ -30,7 +30,13 @@ RUN chmod +x ./Docker/scripts/* && dos2unix ./Docker/scripts/*
 
 RUN ./Docker/scripts/generate_database.sh
 
-RUN npm run build
+# Low-memory Docker build: single CJS entry instead of tsup entry=['src'] (CJS+ESM
+# for every file), which commonly gets SIGKILL/OOM on small VMs.
+ENV NODE_OPTIONS="--max-old-space-size=2048"
+RUN npx tsc --noEmit \
+  && npx tsup src/main.ts --format cjs --outDir dist --clean --sourcemap --target node20 \
+  && mkdir -p dist/translations \
+  && cp -r src/utils/translations/. dist/translations/
 
 FROM node:24-alpine AS final
 
