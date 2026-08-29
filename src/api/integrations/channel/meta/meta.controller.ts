@@ -89,7 +89,21 @@ export class MetaController extends ChannelController implements ChannelControll
         }
 
         if (this.waMonitor.waInstances[instance.name]) {
-          await this.waMonitor.waInstances[instance.name].connectToWhatsapp(data);
+          // Pass only the matched change value. Using the full webhook body always
+          // selected entry[0].changes[0], which dropped later status updates.
+          await this.waMonitor.waInstances[instance.name].connectToWhatsapp({
+            entry: [
+              {
+                id: entry.id,
+                changes: [
+                  {
+                    field: change.field,
+                    value: change.value,
+                  },
+                ],
+              },
+            ],
+          });
         }
       }
     }
