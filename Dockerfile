@@ -15,7 +15,9 @@ COPY ./tsup.config.ts ./
 # Required before npm ci: postinstall patches whatsapp-rust-bridge for CJS/tsx
 COPY ./scripts ./scripts
 
-RUN npm ci --silent
+# Husky's prepare hook fails in Docker (no .git). Keep postinstall patch.
+ENV HUSKY=0
+RUN npm ci --silent && node scripts/patch-whatsapp-rust-bridge.js
 
 COPY ./src ./src
 COPY ./public ./public
