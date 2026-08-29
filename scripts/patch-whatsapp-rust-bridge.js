@@ -17,6 +17,7 @@ const packagePath = path.join(
   'package.json',
 );
 
+// Safe no-op when dependency is not installed yet (e.g. partial Docker COPY layers)
 if (!fs.existsSync(packagePath)) {
   process.exit(0);
 }

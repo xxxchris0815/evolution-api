@@ -12,6 +12,8 @@ WORKDIR /evolution
 COPY ./package*.json ./
 COPY ./tsconfig.json ./
 COPY ./tsup.config.ts ./
+# Required before npm ci: postinstall patches whatsapp-rust-bridge for CJS/tsx
+COPY ./scripts ./scripts
 
 RUN npm ci --silent
 
@@ -52,6 +54,7 @@ COPY --from=builder /evolution/.env ./.env
 COPY --from=builder /evolution/Docker ./Docker
 COPY --from=builder /evolution/runWithProvider.js ./runWithProvider.js
 COPY --from=builder /evolution/tsup.config.ts ./tsup.config.ts
+COPY --from=builder /evolution/scripts ./scripts
 
 ENV DOCKER_ENV=true
 
