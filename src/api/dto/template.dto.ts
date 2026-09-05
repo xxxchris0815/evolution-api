@@ -5,6 +5,9 @@ export class TemplateDto {
   language: string;
   components: any;
   webhookUrl?: string;
+  parameterFormat?: 'POSITIONAL' | 'NAMED';
+  libraryTemplateName?: string;
+  libraryTemplateButtonInputs?: any;
 }
 
 export class TemplateEditDto {
@@ -18,4 +21,20 @@ export class TemplateEditDto {
 export class TemplateDeleteDto {
   name: string;
   hsmId?: string;
+}
+
+export class TemplateFindByIdDto {
+  templateId: string;
+  fields?: string;
+}
+
+export class TemplateFindDto {
+  status?: string;
+  limit?: number | string;
+  after?: string;
+  before?: string;
+  name?: string;
+  language?: string;
+  category?: string;
+  fields?: string;
 }

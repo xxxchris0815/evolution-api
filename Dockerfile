@@ -1,7 +1,7 @@
 FROM node:24-alpine AS builder
 
 RUN apk update && \
-    apk add --no-cache git ffmpeg wget curl bash openssl
+    apk add --no-cache git ffmpeg wget curl bash openssl dos2unix
 
 LABEL version="2.3.1" description="Api to control whatsapp features through http requests." 
 LABEL maintainer="Davidson Gomes" git="https://github.com/DavidsonGomes"
@@ -12,8 +12,13 @@ WORKDIR /evolution
 COPY ./package*.json ./
 COPY ./tsconfig.json ./
 COPY ./tsup.config.ts ./
+COPY ./tsup.docker.config.ts ./
+# Required before npm ci: postinstall patches whatsapp-rust-bridge for CJS/tsx
+COPY ./scripts ./scripts
 
-RUN npm ci --silent
+# Husky's prepare hook fails in Docker (no .git). Keep postinstall patch.
+ENV HUSKY=0
+RUN npm ci --silent && node scripts/patch-whatsapp-rust-bridge.js
 
 COPY ./src ./src
 COPY ./public ./public
@@ -28,7 +33,11 @@ RUN chmod +x ./Docker/scripts/* && dos2unix ./Docker/scripts/*
 
 RUN ./Docker/scripts/generate_database.sh
 
-RUN npm run build
+# Deterministic low-memory production build (tested via scripts/smoke-dist.js)
+ENV NODE_OPTIONS="--max-old-space-size=2048"
+RUN npx tsc --noEmit \
+  && npx tsup --config tsup.docker.config.ts \
+  && node scripts/smoke-dist.js
 
 FROM node:24-alpine AS final
 
@@ -52,6 +61,7 @@ COPY --from=builder /evolution/.env ./.env
 COPY --from=builder /evolution/Docker ./Docker
 COPY --from=builder /evolution/runWithProvider.js ./runWithProvider.js
 COPY --from=builder /evolution/tsup.config.ts ./tsup.config.ts
+COPY --from=builder /evolution/scripts ./scripts
 
 ENV DOCKER_ENV=true
 

@@ -1,3 +1,40 @@
+# Unreleased
+
+### Features
+
+* **Baileys**: Upgrade WhatsApp Web channel to WhiskeySockets/Baileys `7.0.0-rc14`
+  - Added Evolution Baileys compatibility module (`src/api/integrations/channel/whatsapp/baileys/`)
+  - Shared socket config builder aligned with Baileys 7.x defaults
+  - Android browser preset support via `CONFIG_SESSION_PHONE_*` (`Browsers.android` for view-once)
+  - LID → PN remote JID normalization helper used on inbound messages
+  - Postinstall patch for `whatsapp-rust-bridge` CommonJS/tsx exports (`ERR_PACKAGE_PATH_NOT_EXPORTED`)
+  - Unit + integration tests covering Baileys ↔ Evolution message processor and auth helpers
+
+* **Meta WhatsApp Business Templates**: Extend template lifecycle for Graph API v26.0
+  - Added `GET /template/findById/:instanceName` and `GET /template/status/:instanceName`
+  - Enhanced `GET /template/find/:instanceName` with Meta filters and pagination cursors
+  - Improved create/edit/delete flows (library template fields, local Prisma sync on edit)
+  - Inbound Meta template webhooks now persist status and emit Evolution events:
+    `TEMPLATE_STATUS_UPDATE`, `TEMPLATE_QUALITY_UPDATE`, `TEMPLATE_CATEGORY_UPDATE`, `TEMPLATE_COMPONENTS_UPDATE`
+  - Optional raw Meta webhook passthrough:
+    - dedicated endpoint `GET/POST /webhook/meta/passthrough`
+    - or sidecar on `/webhook/meta` via `WA_BUSINESS_WEBHOOK_PASSTHROUGH=true`
+      or per-instance `Setting.metaWebhookPassthrough`
+    - emits `META_WEBHOOK` (`meta.webhook`) preserving Meta's native schema
+  - Manager UI: Templates page for `WHATSAPP-BUSINESS` instances
+  - Manager UI: Meta webhook panel (callback URLs, verify token, passthrough toggle, META_WEBHOOK activation)
+  - API: `GET/POST /template/metaWebhook/:instanceName`
+  - Chatwoot template sync: `POST /template/syncChatwoot/:instanceName`
+    - Meta APPROVED templates → Chatwoot canned responses marked `[META:readonly]` / `meta_*`
+    - Chatwoot user canned responses remain editable (`source=chatwoot`)
+    - Chatwoot outgoing Meta canned/`template_params` → `sendTemplate`
+    - Template status webhooks notify Chatwoot agents
+  - Auto-resolve WABA ID from phone `health_status` when `businessId` was set to phone number ID
+  - Expand `Instance.token` and `Chatwoot.token` to TEXT (full Meta access token length)
+  - Default `WA_BUSINESS_VERSION` updated to `v26.0`
+  - Docs: `docs/meta-templates.md`, `docs/meta-api-coverage.md`
+  - Tests: unit + integration coverage via `npm test`
+
 # 2.3.7 (2025-12-05)
 
 ### Features
