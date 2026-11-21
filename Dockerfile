@@ -18,9 +18,11 @@ COPY ./scripts ./scripts
 
 # Husky's prepare hook fails in Docker (no .git). Keep postinstall patches.
 ENV HUSKY=0
+# npm ci can look "stuck" for several minutes while Docker commits the large node_modules layer.
 RUN npm ci --silent \
   && node scripts/patch-whatsapp-rust-bridge.js \
-  && node scripts/patch-baileys-status-ack.js
+  && node scripts/patch-baileys-status-ack.js \
+  && echo "[docker] npm ci + patches done; committing layer next (can take minutes)..."
 
 COPY ./src ./src
 COPY ./public ./public
