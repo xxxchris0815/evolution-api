@@ -2,6 +2,12 @@
 
 ### Fixed
 
+* **Baileys sendStatus**: Media stories no longer re-upload per contact batch
+  - Upload image/video/audio once via `prepareMediaMessage` / `prepareWAMessageMedia`
+  - Fan out audience with sequential `relayMessage` batches (size 50) instead of parallel `sendMessage`
+  - Fix base64/data-URI handling (was incorrectly sent as `{ url: base64 }`)
+  - Set `broadcast: true` on text status sends
+
 * **Baileys**: ACK top-level WhatsApp `<status>` stanzas (WhiskeySockets/Baileys#2858)
   - Postinstall/Docker patch `scripts/patch-baileys-status-ack.js`
   - Prevents ~50min `stream errored out` / `ack class="status"` loops that leave instances looking `open` while inbound delivery stalls
