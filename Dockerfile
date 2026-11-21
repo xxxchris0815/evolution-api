@@ -13,12 +13,14 @@ COPY ./package*.json ./
 COPY ./tsconfig.json ./
 COPY ./tsup.config.ts ./
 COPY ./tsup.docker.config.ts ./
-# Required before npm ci: postinstall patches whatsapp-rust-bridge for CJS/tsx
+# Required before npm ci: postinstall patches rust-bridge + Baileys status ACK
 COPY ./scripts ./scripts
 
-# Husky's prepare hook fails in Docker (no .git). Keep postinstall patch.
+# Husky's prepare hook fails in Docker (no .git). Keep postinstall patches.
 ENV HUSKY=0
-RUN npm ci --silent && node scripts/patch-whatsapp-rust-bridge.js
+RUN npm ci --silent \
+  && node scripts/patch-whatsapp-rust-bridge.js \
+  && node scripts/patch-baileys-status-ack.js
 
 COPY ./src ./src
 COPY ./public ./public

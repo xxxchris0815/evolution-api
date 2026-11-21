@@ -1,5 +1,12 @@
 # Unreleased
 
+### Fixed
+
+* **Baileys**: ACK top-level WhatsApp `<status>` stanzas (WhiskeySockets/Baileys#2858)
+  - Postinstall/Docker patch `scripts/patch-baileys-status-ack.js`
+  - Prevents ~50min `stream errored out` / `ack class="status"` loops that leave instances looking `open` while inbound delivery stalls
+  - Applies live `CB:status` handler + offline-node processor entry (aligned with unreleased Baileys PR #2883)
+
 ### Features
 
 * **Baileys**: Upgrade WhatsApp Web channel to WhiskeySockets/Baileys `7.0.0-rc14`
