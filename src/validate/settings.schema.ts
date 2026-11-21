@@ -32,6 +32,7 @@ export const settingsSchema: JSONSchema7 = {
     readStatus: { type: 'boolean' },
     syncFullHistory: { type: 'boolean' },
     wavoipToken: { type: 'string' },
+    metaWebhookPassthrough: { type: 'boolean' },
   },
   required: ['rejectCall', 'groupsIgnore', 'alwaysOnline', 'readMessages', 'readStatus', 'syncFullHistory'],
   ...isNotEmpty('rejectCall', 'groupsIgnore', 'alwaysOnline', 'readMessages', 'readStatus', 'syncFullHistory'),

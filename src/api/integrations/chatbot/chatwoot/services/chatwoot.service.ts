@@ -1,5 +1,5 @@
 import { InstanceDto } from '@api/dto/instance.dto';
-import { Options, Quoted, SendAudioDto, SendMediaDto, SendTextDto } from '@api/dto/sendMessage.dto';
+import { Options, Quoted, SendAudioDto, SendMediaDto, SendTemplateDto, SendTextDto } from '@api/dto/sendMessage.dto';
 import { ChatwootDto } from '@api/integrations/chatbot/chatwoot/dto/chatwoot.dto';
 import { postgresClient } from '@api/integrations/chatbot/chatwoot/libs/postgres.client';
 import { chatwootImport } from '@api/integrations/chatbot/chatwoot/utils/chatwoot-import-helper';
@@ -20,6 +20,7 @@ import ChatwootClient, {
 } from '@figuro/chatwoot-sdk';
 import { request as chatwootRequest } from '@figuro/chatwoot-sdk/dist/core/request';
 import { Chatwoot as ChatwootModel, Contact as ContactModel, Message as MessageModel } from '@prisma/client';
+import { parseChatwootTemplateMessage } from '@utils/chatwoot-template.helper';
 import i18next from '@utils/i18n';
 import { sendTelemetry } from '@utils/sendTelemetry';
 import axios from 'axios';
@@ -967,6 +968,44 @@ export class ChatwootService {
     return message;
   }
 
+  /**
+   * Notify Chatwoot agents (bot conversation) about Meta template lifecycle changes.
+   */
+  public async notifyTemplateStatus(instance: InstanceDto, payload: Record<string, unknown>) {
+    try {
+      if (!this.configService.get<Chatwoot>('CHATWOOT').ENABLED) {
+        return;
+      }
+
+      await this.clientCw(instance);
+      if (!this.provider?.enabled) {
+        return;
+      }
+
+      const name = payload.message_template_name || payload.name || 'unknown';
+      const templateId = payload.message_template_id || payload.id || '';
+      const status = payload.event || payload.message_template_status || payload.status || payload.field;
+      const reason = payload.reason || payload.rejected_reason || '';
+      const field = payload.field || 'message_template_status_update';
+
+      const content = [
+        '📋 **Meta template update**',
+        `• Field: \`${field}\``,
+        `• Name: \`${name}\``,
+        templateId ? `• ID: \`${templateId}\`` : null,
+        status ? `• Status: **${status}**` : null,
+        reason ? `• Reason: ${reason}` : null,
+        '_(Meta-managed templates are read-only in Chatwoot. Re-run template sync after approval.)_',
+      ]
+        .filter(Boolean)
+        .join('\n');
+
+      await this.createBotMessage(instance, content, 'incoming');
+    } catch (error) {
+      this.logger.error(`Failed to notify Chatwoot about template status: ${(error as Error).message}`);
+    }
+  }
+
   public async getOpenConversationByContact(
     instance: InstanceDto,
     inbox: inbox,
@@ -1500,18 +1539,37 @@ export class ChatwootService {
               );
             }
           } else {
-            const data: SendTextDto = {
+            const parsedTemplate = parseChatwootTemplateMessage({
+              content: messageReceived,
+              content_attributes: message?.content_attributes,
+              template_params: message?.template_params,
+            });
+
+            const dataText: SendTextDto = {
               number: chatId,
               text: formatText,
               delay: Math.floor(Math.random() * (2000 - 500 + 1)) + 500,
               quoted: await this.getQuotedMessage(body, instance),
             };
 
-            sendTelemetry('/message/sendText');
-
             let messageSent: any;
             try {
-              messageSent = await waInstance?.textMessage(data, true);
+              if (parsedTemplate && typeof waInstance?.templateMessage === 'function') {
+                const templateData: SendTemplateDto = {
+                  number: chatId,
+                  name: parsedTemplate.name,
+                  language: parsedTemplate.language,
+                  components: parsedTemplate.components,
+                  delay: dataText.delay,
+                  quoted: dataText.quoted,
+                };
+                sendTelemetry('/message/sendTemplate');
+                messageSent = await waInstance.templateMessage(templateData, true);
+              } else {
+                sendTelemetry('/message/sendText');
+                messageSent = await waInstance?.textMessage(dataText, true);
+              }
+
               if (!messageSent) {
                 throw new Error('Message not sent');
               }
@@ -1587,15 +1645,36 @@ export class ChatwootService {
       }
 
       if (body.message_type === 'template' && body.event === 'message_created') {
-        const data: SendTextDto = {
-          number: chatId,
-          text: body.content.replace(/\\\r\n|\\\n|\n/g, '\n'),
-          delay: Math.floor(Math.random() * (2000 - 500 + 1)) + 500,
-        };
+        const parsedTemplate = parseChatwootTemplateMessage(body);
 
-        sendTelemetry('/message/sendText');
+        try {
+          if (parsedTemplate && typeof waInstance?.templateMessage === 'function') {
+            const templateData: SendTemplateDto = {
+              number: chatId,
+              name: parsedTemplate.name,
+              language: parsedTemplate.language,
+              components: parsedTemplate.components,
+              delay: Math.floor(Math.random() * (2000 - 500 + 1)) + 500,
+            };
 
-        await waInstance?.textMessage(data);
+            sendTelemetry('/message/sendTemplate');
+            await waInstance.templateMessage(templateData, true);
+          } else {
+            const data: SendTextDto = {
+              number: chatId,
+              text: `${body.content || ''}`.replace(/\\\r\n|\\\n|\n/g, '\n'),
+              delay: Math.floor(Math.random() * (2000 - 500 + 1)) + 500,
+            };
+
+            sendTelemetry('/message/sendText');
+            await waInstance?.textMessage(data);
+          }
+        } catch (error) {
+          if (body.conversation?.id) {
+            this.onSendMessageError(instance, body.conversation?.id, error);
+          }
+          throw error;
+        }
       }
 
       return { message: 'bot' };

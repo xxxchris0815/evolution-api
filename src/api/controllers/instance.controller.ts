@@ -136,6 +136,7 @@ export class InstanceController {
       await this.settingsService.create(instanceDto, settings);
 
       let webhookWaBusiness = null,
+        webhookWaBusinessPassthrough = null,
         accessTokenWaBusiness = '';
 
       if (instanceData.integration === Integration.WHATSAPP_BUSINESS) {
@@ -144,6 +145,7 @@ export class InstanceController {
         }
         const urlServer = this.configService.get<HttpServer>('SERVER').URL;
         webhookWaBusiness = `${urlServer}/webhook/meta`;
+        webhookWaBusinessPassthrough = `${urlServer}/webhook/meta/passthrough`;
         accessTokenWaBusiness = this.configService.get<WaBusiness>('WA_BUSINESS').TOKEN_WEBHOOK;
       }
 
@@ -162,6 +164,7 @@ export class InstanceController {
             instanceId: instanceId,
             integration: instanceData.integration,
             webhookWaBusiness,
+            webhookWaBusinessPassthrough,
             accessTokenWaBusiness,
             status:
               typeof instance.connectionStatus === 'string'
@@ -256,6 +259,7 @@ export class InstanceController {
           instanceId: instanceId,
           integration: instanceData.integration,
           webhookWaBusiness,
+          webhookWaBusinessPassthrough,
           accessTokenWaBusiness,
           status:
             typeof instance.connectionStatus === 'string'

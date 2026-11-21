@@ -154,6 +154,7 @@ export class ChannelStartupService {
     this.localSettings.readStatus = data?.readStatus;
     this.localSettings.syncFullHistory = data?.syncFullHistory;
     this.localSettings.wavoipToken = data?.wavoipToken;
+    this.localSettings.metaWebhookPassthrough = data?.metaWebhookPassthrough;
   }
 
   public async setSettings(data: SettingsDto) {
@@ -170,6 +171,9 @@ export class ChannelStartupService {
         readStatus: data.readStatus,
         syncFullHistory: data.syncFullHistory,
         wavoipToken: data.wavoipToken,
+        ...(typeof data.metaWebhookPassthrough === 'boolean'
+          ? { metaWebhookPassthrough: data.metaWebhookPassthrough }
+          : {}),
       },
       create: {
         rejectCall: data.rejectCall,
@@ -180,6 +184,7 @@ export class ChannelStartupService {
         readStatus: data.readStatus,
         syncFullHistory: data.syncFullHistory,
         wavoipToken: data.wavoipToken,
+        metaWebhookPassthrough: data.metaWebhookPassthrough ?? false,
         instanceId: this.instanceId,
       },
     });
@@ -192,6 +197,9 @@ export class ChannelStartupService {
     this.localSettings.readStatus = data?.readStatus;
     this.localSettings.syncFullHistory = data?.syncFullHistory;
     this.localSettings.wavoipToken = data?.wavoipToken;
+    if (typeof data?.metaWebhookPassthrough === 'boolean') {
+      this.localSettings.metaWebhookPassthrough = data.metaWebhookPassthrough;
+    }
 
     if (this.localSettings.wavoipToken && this.localSettings.wavoipToken.length > 0) {
       this.client.ws.close();
@@ -219,6 +227,7 @@ export class ChannelStartupService {
       readStatus: data.readStatus,
       syncFullHistory: data.syncFullHistory,
       wavoipToken: data.wavoipToken,
+      metaWebhookPassthrough: data.metaWebhookPassthrough,
     };
   }
 

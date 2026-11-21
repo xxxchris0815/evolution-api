@@ -20,6 +20,7 @@ import { BaileysController } from './integrations/channel/whatsapp/baileys.contr
 import { ChatbotController } from './integrations/chatbot/chatbot.controller';
 import { ChatwootController } from './integrations/chatbot/chatwoot/controllers/chatwoot.controller';
 import { ChatwootService } from './integrations/chatbot/chatwoot/services/chatwoot.service';
+import { ChatwootTemplateSyncService } from './integrations/chatbot/chatwoot/services/chatwoot.template.sync.service';
 import { DifyController } from './integrations/chatbot/dify/controllers/dify.controller';
 import { DifyService } from './integrations/chatbot/dify/services/dify.service';
 import { EvoaiController } from './integrations/chatbot/evoai/controllers/evoai.controller';
@@ -40,6 +41,7 @@ import { S3Service } from './integrations/storage/s3/services/s3.service';
 import { ProviderFiles } from './provider/sessions';
 import { PrismaRepository } from './repository/repository.service';
 import { CacheService } from './services/cache.service';
+import { MetaWebhookConfigService } from './services/metaWebhookConfig.service';
 import { WAMonitoringService } from './services/monitor.service';
 import { ProxyService } from './services/proxy.service';
 import { SettingsService } from './services/settings.service';
@@ -76,7 +78,13 @@ const s3Service = new S3Service(prismaRepository);
 export const s3Controller = new S3Controller(s3Service);
 
 const templateService = new TemplateService(waMonitor, prismaRepository, configService);
-export const templateController = new TemplateController(templateService);
+const metaWebhookConfigService = new MetaWebhookConfigService(waMonitor, prismaRepository, configService);
+const chatwootTemplateSyncService = new ChatwootTemplateSyncService(prismaRepository, templateService);
+export const templateController = new TemplateController(
+  templateService,
+  metaWebhookConfigService,
+  chatwootTemplateSyncService,
+);
 
 const proxyService = new ProxyService(waMonitor);
 export const proxyController = new ProxyController(proxyService, waMonitor);
@@ -113,7 +121,13 @@ export const channelController = new ChannelController(prismaRepository, waMonit
 
 // channels
 export const evolutionController = new EvolutionController(prismaRepository, waMonitor);
-export const metaController = new MetaController(prismaRepository, waMonitor);
+export const metaController = new MetaController(
+  prismaRepository,
+  waMonitor,
+  configService,
+  eventManager,
+  chatwootService,
+);
 export const baileysController = new BaileysController(waMonitor);
 
 const openaiService = new OpenaiService(waMonitor, prismaRepository, configService);

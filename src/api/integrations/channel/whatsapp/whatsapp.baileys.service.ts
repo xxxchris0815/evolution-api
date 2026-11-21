@@ -86,6 +86,7 @@ import { makeProxyAgent, makeProxyAgentUndici } from '@utils/makeProxyAgent';
 import { getOnWhatsappCache, saveOnWhatsappCache } from '@utils/onWhatsappCache';
 import { status } from '@utils/renderStatus';
 import { sendTelemetry } from '@utils/sendTelemetry';
+import { normalizeStatusMediaContent } from '@utils/statusMediaContent';
 import useMultiFileAuthStatePrisma from '@utils/use-multi-file-auth-state-prisma';
 import { AuthStateProvider } from '@utils/use-multi-file-auth-state-provider-files';
 import { useMultiFileAuthStateRedisDb } from '@utils/use-multi-file-auth-state-redis-db';
@@ -124,15 +125,12 @@ import makeWASocket, {
   Product,
   proto,
   UserFacingSocketConfig,
-  WABrowserDescription,
   WAMediaUpload,
   WAMessage,
   WAMessageKey,
   WAPresence,
   WASocket,
 } from 'baileys';
-import { Label } from 'baileys/lib/Types/Label';
-import { LabelAssociation } from 'baileys/lib/Types/LabelAssociation';
 import { spawn } from 'child_process';
 import { isArray, isBase64, isURL } from 'class-validator';
 import { createHash } from 'crypto';
@@ -143,7 +141,6 @@ import Long from 'long';
 import mimeTypes from 'mime-types';
 import NodeCache from 'node-cache';
 import cron from 'node-cron';
-import { release } from 'os';
 import { join } from 'path';
 import P from 'pino';
 import qrcode, { QRCodeToDataURLOptions } from 'qrcode';
@@ -152,6 +149,13 @@ import sharp from 'sharp';
 import { PassThrough, Readable } from 'stream';
 import { v4 } from 'uuid';
 
+import {
+  BaileysLabel,
+  BaileysLabelAssociation,
+  getBaileysPackageVersion,
+  normalizeRemoteJid,
+  resolveBaileysBrowser,
+} from './baileys';
 import { BaileysMessageProcessor } from './baileysMessage.processor';
 import { useVoiceCallsBaileys } from './voiceCalls/useVoiceCallsBaileys';
 
@@ -585,7 +589,7 @@ export class BaileysStartupService extends ChannelStartupService {
 
       this.logger.info(`Phone number: ${number}`);
     } else {
-      const browser: WABrowserDescription = [session.CLIENT, session.NAME, release()];
+      const browser = resolveBaileysBrowser(session.CLIENT, session.NAME);
       browserOptions = { browser };
 
       this.logger.info(`Browser: ${browser}`);
@@ -593,7 +597,7 @@ export class BaileysStartupService extends ChannelStartupService {
 
     const baileysVersion = await fetchLatestWaWebVersion({});
     const version = baileysVersion.version;
-    const log = `Baileys version: ${version.join('.')}`;
+    const log = `Baileys package ${getBaileysPackageVersion()} | WA Web version: ${version.join('.')}`;
 
     this.logger.info(log);
 
@@ -1475,8 +1479,9 @@ export class BaileysStartupService extends ChannelStartupService {
           this.logger.verbose(messageRaw);
 
           sendTelemetry(`received.message.${messageRaw.messageType ?? 'unknown'}`);
-          if (messageRaw.key.remoteJid?.includes('@lid') && messageRaw.key.remoteJidAlt) {
-            messageRaw.key.remoteJid = messageRaw.key.remoteJidAlt;
+          const normalizedRemoteJid = normalizeRemoteJid(messageRaw.key);
+          if (normalizedRemoteJid) {
+            messageRaw.key.remoteJid = normalizedRemoteJid;
           }
           console.log(messageRaw);
 
@@ -1811,7 +1816,7 @@ export class BaileysStartupService extends ChannelStartupService {
   };
 
   private readonly labelHandle = {
-    [Events.LABELS_EDIT]: async (label: Label) => {
+    [Events.LABELS_EDIT]: async (label: BaileysLabel) => {
       this.sendDataWebhook(Events.LABELS_EDIT, { ...label, instance: this.instance.name });
 
       const labelsRepository = await this.prismaRepository.label.findMany({ where: { instanceId: this.instanceId } });
@@ -1845,7 +1850,7 @@ export class BaileysStartupService extends ChannelStartupService {
     },
 
     [Events.LABELS_ASSOCIATION]: async (
-      data: { association: LabelAssociation; type: 'remove' | 'add' },
+      data: { association: BaileysLabelAssociation; type: 'remove' | 'add' },
       database: Database,
     ) => {
       this.logger.info(
@@ -2220,61 +2225,86 @@ export class BaileysStartupService extends ChannelStartupService {
     }
 
     if (sender === 'status@broadcast') {
-      let jidList;
-      if (message['status'].option.allContacts) {
+      const statusPayload = message['status'] as {
+        content?: AnyMessageContent;
+        preparedMessage?: proto.IMessage;
+        option?: {
+          allContacts?: boolean;
+          statusJidList?: string[];
+          backgroundColor?: string;
+          font?: number;
+        };
+      };
+
+      let jidList: string[] = [];
+      if (statusPayload.option?.allContacts) {
         const contacts = await this.prismaRepository.contact.findMany({
           where: { instanceId: this.instanceId, remoteJid: { not: { endsWith: '@g.us' } } },
         });
 
-        jidList = contacts.map((contact) => contact.remoteJid);
+        jidList = contacts.map((contact) => contact.remoteJid).filter(Boolean);
       } else {
-        jidList = message['status'].option.statusJidList;
+        jidList = statusPayload.option?.statusJidList || [];
       }
 
-      const batchSize = 10;
+      jidList = [...new Set(jidList.filter((jid) => typeof jid === 'string' && jid.length > 0))];
+      if (!jidList.length) {
+        throw new BadRequestException('StatusJidList is required');
+      }
 
+      // Larger batches + sequential relay avoids re-uploading media N times in parallel
+      // (previous Promise.allSettled(sendMessage) caused media timeouts with many contacts).
+      const batchSize = 50;
       const batches = Array.from({ length: Math.ceil(jidList.length / batchSize) }, (_, i) =>
         jidList.slice(i * batchSize, i * batchSize + batchSize),
       );
 
-      let msgId: string | null = null;
+      this.logger.verbose(
+        `Sending status@broadcast to ${jidList.length} contacts in ${batches.length} batch(es)`,
+      );
 
-      let firstMessage: WAMessage;
+      // Preferred path: media already uploaded once in statusMessage()
+      if (statusPayload.preparedMessage) {
+        const fullMsg = generateWAMessageFromContent(sender, statusPayload.preparedMessage, {
+          userJid: this.instance.wuid,
+        });
+        const msgId = fullMsg.key.id;
 
-      const firstBatch = batches.shift();
+        for (const batch of batches) {
+          await this.client.relayMessage(sender, fullMsg.message!, {
+            messageId: msgId,
+            statusJidList: batch,
+          });
+        }
 
-      if (firstBatch) {
-        firstMessage = await this.client.sendMessage(
-          sender,
-          message['status'].content as unknown as AnyMessageContent,
-          {
-            backgroundColor: message['status'].option.backgroundColor,
-            font: message['status'].option.font,
-            statusJidList: firstBatch,
-          } as unknown as MiscMessageGenerationOptions,
-        );
+        fullMsg.key = {
+          id: msgId,
+          remoteJid: sender,
+          fromMe: true,
+        };
 
-        msgId = firstMessage.key.id;
+        return fullMsg;
       }
 
-      if (batches.length === 0) return firstMessage;
-
-      await Promise.allSettled(
-        batches.map(async (batch) => {
-          const messageSent = await this.client.sendMessage(
-            sender,
-            message['status'].content as unknown as AnyMessageContent,
-            {
-              backgroundColor: message['status'].option.backgroundColor,
-              font: message['status'].option.font,
-              statusJidList: batch,
-              messageId: msgId,
-            } as unknown as MiscMessageGenerationOptions,
-          );
-
-          return messageSent;
-        }),
+      // Text / legacy content: first sendMessage applies font/backgroundColor, then relay
+      const firstMessage = await this.client.sendMessage(
+        sender,
+        statusPayload.content as unknown as AnyMessageContent,
+        {
+          backgroundColor: statusPayload.option?.backgroundColor,
+          font: statusPayload.option?.font,
+          statusJidList: batches[0],
+          broadcast: true,
+        } as unknown as MiscMessageGenerationOptions,
       );
+
+      const msgId = firstMessage.key.id;
+      for (const batch of batches.slice(1)) {
+        await this.client.relayMessage(sender, firstMessage.message!, {
+          messageId: msgId,
+          statusJidList: batch,
+        });
+      }
 
       return firstMessage;
     }
@@ -2663,84 +2693,112 @@ export class BaileysStartupService extends ChannelStartupService {
     );
   }
 
-  private async formatStatusMessage(status: StatusMessage) {
-    if (!status.type) {
-      throw new BadRequestException('Type is required');
-    }
-
-    if (!status.content) {
-      throw new BadRequestException('Content is required');
-    }
+  private async resolveStatusJidList(status: Pick<StatusMessage, 'allContacts' | 'statusJidList'>): Promise<string[]> {
+    let statusJidList = [...(status.statusJidList || [])];
 
     if (status.allContacts) {
-      const contacts = await this.prismaRepository.contact.findMany({ where: { instanceId: this.instanceId } });
+      const contacts = await this.prismaRepository.contact.findMany({
+        where: { instanceId: this.instanceId, remoteJid: { not: { endsWith: '@g.us' } } },
+      });
 
       if (!contacts.length) {
         throw new BadRequestException('Contacts not found');
       }
 
-      status.statusJidList = contacts.filter((contact) => contact.pushName).map((contact) => contact.remoteJid);
+      statusJidList = contacts.map((contact) => contact.remoteJid).filter(Boolean);
     }
 
-    if (!status.statusJidList?.length && !status.allContacts) {
+    statusJidList = [
+      ...new Set(
+        statusJidList
+          .filter((jid) => typeof jid === 'string' && jid.length > 0)
+          .map((jid) => (jid.includes('@') ? jid : createJid(jid))),
+      ),
+    ];
+
+    if (!statusJidList.length) {
       throw new BadRequestException('StatusJidList is required');
     }
 
-    if (status.type === 'text') {
-      if (!status.backgroundColor) {
-        throw new BadRequestException('Background color is required');
-      }
-
-      if (!status.font) {
-        throw new BadRequestException('Font is required');
-      }
-
-      return {
-        content: { text: status.content },
-        option: { backgroundColor: status.backgroundColor, font: status.font, statusJidList: status.statusJidList },
-      };
-    }
-    if (status.type === 'image') {
-      return {
-        content: { image: { url: status.content }, caption: status.caption },
-        option: { statusJidList: status.statusJidList },
-      };
-    }
-
-    if (status.type === 'video') {
-      return {
-        content: { video: { url: status.content }, caption: status.caption },
-        option: { statusJidList: status.statusJidList },
-      };
-    }
-
-    if (status.type === 'audio') {
-      const convert = await this.processAudioMp4(status.content);
-      if (Buffer.isBuffer(convert)) {
-        const result = {
-          content: { audio: convert, ptt: true, mimetype: 'audio/ogg; codecs=opus' },
-          option: { statusJidList: status.statusJidList },
-        };
-
-        return result;
-      } else {
-        throw new InternalServerErrorException(convert);
-      }
-    }
-
-    throw new BadRequestException('Type not found');
+    return statusJidList;
   }
 
   public async statusMessage(data: SendStatusDto, file?: any) {
     const mediaData: SendStatusDto = { ...data };
 
-    if (file) mediaData.content = file.buffer.toString('base64');
+    if (!mediaData.type) {
+      throw new BadRequestException('Type is required');
+    }
 
-    const status = await this.formatStatusMessage(mediaData);
+    if (file) {
+      mediaData.content = file.buffer.toString('base64');
+    }
 
-    const statusSent = await this.sendMessageWithTyping('status@broadcast', { status });
+    if (!mediaData.content) {
+      throw new BadRequestException('Content is required');
+    }
 
-    return statusSent;
+    const statusJidList = await this.resolveStatusJidList(mediaData);
+    const mediaContent = normalizeStatusMediaContent(mediaData.content);
+
+    // Image/video/audio: upload ONCE, then fan out audience via relayMessage batches.
+    // Legacy path wrapped base64 as { url: base64 } and re-uploaded per batch → timeouts.
+    if (mediaData.type === 'image' || mediaData.type === 'video') {
+      const prepared = await this.prepareMediaMessage({
+        mediatype: mediaData.type,
+        media: mediaContent,
+        caption: mediaData.caption,
+      });
+
+      return await this.sendMessageWithTyping('status@broadcast', {
+        status: {
+          preparedMessage: prepared.message,
+          option: { statusJidList },
+        },
+      });
+    }
+
+    if (mediaData.type === 'audio') {
+      const convert = await this.processAudioMp4(mediaContent);
+      if (!Buffer.isBuffer(convert)) {
+        throw new InternalServerErrorException(convert);
+      }
+
+      const prepared = await prepareWAMessageMedia(
+        { audio: convert, ptt: true, mimetype: 'audio/ogg; codecs=opus' } as any,
+        { upload: this.client.waUploadToServer, mediaUploadTimeoutMs: 120_000 },
+      );
+
+      return await this.sendMessageWithTyping('status@broadcast', {
+        status: {
+          preparedMessage: prepared,
+          option: { statusJidList },
+        },
+      });
+    }
+
+    if (mediaData.type === 'text') {
+      if (!mediaData.backgroundColor) {
+        throw new BadRequestException('Background color is required');
+      }
+
+      if (mediaData.font === undefined || mediaData.font === null) {
+        throw new BadRequestException('Font is required');
+      }
+
+      return await this.sendMessageWithTyping('status@broadcast', {
+        status: {
+          content: { text: mediaData.content },
+          option: {
+            backgroundColor: mediaData.backgroundColor,
+            font: mediaData.font,
+            statusJidList,
+          },
+        },
+      });
+    }
+
+    throw new BadRequestException('Type not found');
   }
 
   private async prepareMediaMessage(mediaMessage: MediaMessage) {
